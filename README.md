@@ -90,9 +90,15 @@ add_subdirectory(ThirdParty/referee-hud-ui)
 target_link_libraries(your_firmware_target PRIVATE referee_hud::ui)
 ```
 
-### 4. 写一个板级发送适配层
+### 4. 准备发送回调并调用构造函数
 
-库只需要一个“发送完整裁判系统交互帧”的函数。UART、DMA、互斥、发送完成判断都由主工程自己处理。
+FreeRTOS 头文件和 CMake target 配好后，下一步就是构造 `UiRendererSrvc`。构造前需要准备两样东西：
+
+- 一个“发送完整裁判系统交互帧”的回调函数。
+- 一个生命周期足够长的外部发送缓冲区。
+
+UART、DMA、互斥、发送完成判断都由主工程自己的发送回调处理。下面这段代码同时完成发送回调定义、
+外部缓冲区准备和 `UiRendererSrvc` 构造。
 
 ```cpp
 #include "ui-renderer-srvc.h"
@@ -119,9 +125,9 @@ static UiRendererSrvc renderer({
 
 `senderId` 直接写入交互帧头，`receiverId` 由库自动生成为 `senderId + 0x0100`。
 
-### 5. 在线程中运行 renderer
+### 5. 初始化并在线程中运行 renderer
 
-库不会创建线程。调用者需要创建一个任务周期性调用 `renderer.run()`。
+构造完成后，在调用者自己的任务初始化阶段调用 `renderer.init()`，随后周期性调用 `renderer.run()`。
 
 ```cpp
 void refereeUiRendererTask(void*) {
