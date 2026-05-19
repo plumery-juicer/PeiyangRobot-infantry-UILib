@@ -94,15 +94,15 @@ constexpr float kCapVoltageThresholds[]   = {
  * UI 绘制使用缩放后的 105:125 连杆，对应真实机构 210:250 的大腿/小腿比例。
  * 腿长变化通过 hip-wheel distance 反解关节位置，不缩放连杆长度。
  */
-constexpr float kWheelLegScale           = 0.48f;
-constexpr float kWheelLegHipX            = 960.0f;
-constexpr float kWheelLegHipY            = 174.0f;
-constexpr float kWheelLegSide            = 1.0f;
-constexpr float kWheelLegUpperLinkLength = 105.0f * kWheelLegScale;
-constexpr float kWheelLegLowerLinkLength = 125.0f * kWheelLegScale;
-constexpr float kWheelLegDistanceMinRaw  = 95.0f;
-constexpr float kWheelLegDistanceMidRaw  = 135.0f;
-constexpr float kWheelLegDistanceMaxRaw  = 175.0f;
+constexpr float kWheelLegScale               = 0.48f;
+constexpr float kWheelLegHipX                = 960.0f;
+constexpr float kWheelLegHipY                = 174.0f;
+constexpr float kWheelLegSide                = 1.0f;
+constexpr float kWheelLegUpperLinkLength     = 105.0f * kWheelLegScale;
+constexpr float kWheelLegLowerLinkLength     = 125.0f * kWheelLegScale;
+constexpr float kWheelLegDistanceMinRaw      = 95.0f;
+constexpr float kWheelLegDistanceMidRaw      = 135.0f;
+constexpr float kWheelLegDistanceMaxRaw      = 175.0f;
 
 constexpr float kWheelLegDistanceMarksRaw[3] = {
     kWheelLegDistanceMinRaw,
@@ -319,12 +319,9 @@ constexpr AutoAimFrameLine kAutoAimFrameLines[] = {
 
 /// 自瞄目标状态轨道，根据 none/locked/fire 动态变色。
 constexpr HudLine kAutoAimTrackLines[] = {
-    {0, UiColor::Cyan, 2, 746.0f, 420.0f, 746.0f, 620.0f},
-    {1, UiColor::Cyan, 2, 746.0f, 620.0f, 710.0f, 644.0f},
-    {2, UiColor::Cyan, 2, 746.0f, 420.0f, 710.0f, 396.0f},
-    {3, UiColor::Cyan, 2, 1174.0f, 420.0f, 1174.0f, 620.0f},
-    {4, UiColor::Cyan, 2, 1174.0f, 620.0f, 1210.0f, 644.0f},
-    {5, UiColor::Cyan, 2, 1174.0f, 420.0f, 1210.0f, 396.0f},
+    {0, UiColor::Cyan, 2, 746.0f, 420.0f, 746.0f, 620.0f},   {1, UiColor::Cyan, 2, 746.0f, 620.0f, 710.0f, 644.0f},
+    {2, UiColor::Cyan, 2, 746.0f, 420.0f, 710.0f, 396.0f},   {3, UiColor::Cyan, 2, 1174.0f, 420.0f, 1174.0f, 620.0f},
+    {4, UiColor::Cyan, 2, 1174.0f, 620.0f, 1210.0f, 644.0f}, {5, UiColor::Cyan, 2, 1174.0f, 420.0f, 1210.0f, 396.0f},
 };
 
 /// 自瞄模式选中刻度，随 aimModeState 动态加粗。
@@ -557,8 +554,7 @@ uint8_t drawAutoAimFan(UiRendererSrvc& renderer, const AutoAimIcon& icon, Graphi
     const UiColor bladeColor = autoAimMainColor(active);
     for (uint8_t i = 0; i < 5; ++i) {
         const float angle = phaseDeg + static_cast<float>(i) * 72.0f;
-        drawAutoAimArc(renderer, icon, i, option, bladeColor, 5.0f, 0.0f, 0.0f, 19.0f, angle - 17.0f,
-                       angle + 17.0f);
+        drawAutoAimArc(renderer, icon, i, option, bladeColor, 5.0f, 0.0f, 0.0f, 19.0f, angle - 17.0f, angle + 17.0f);
     }
     drawAutoAimCircle(renderer, icon, 5, option, autoAimDetailColor(active), 2.0f, 0.0f, 0.0f, 5.0f);
     return 6;
@@ -583,31 +579,27 @@ void drawAutoAimVehicleIcon(UiRendererSrvc& renderer, const AutoAimIcon& icon, G
 /**
  * @brief 绘制能量机关定点模式图标。
  */
-void drawAutoAimEnergyStaticIcon(UiRendererSrvc& renderer, const AutoAimIcon& icon, GraphicOption option,
-                                 bool active) {
+void drawAutoAimEnergyStaticIcon(UiRendererSrvc& renderer, const AutoAimIcon& icon, GraphicOption option, bool active) {
     const uint8_t nextId = drawAutoAimFan(renderer, icon, option, active, -90.0f);
-    drawAutoAimLine(renderer, icon, nextId, option, autoAimMainColor(active), 3.0f, -11.0f, -29.0f, 11.0f,
-                    -29.0f);
+    drawAutoAimLine(renderer, icon, nextId, option, autoAimMainColor(active), 3.0f, -11.0f, -29.0f, 11.0f, -29.0f);
 }
 
 /**
  * @brief 绘制能量机关扫掠模式图标。
  */
-void drawAutoAimEnergySweepIcon(UiRendererSrvc& renderer, const AutoAimIcon& icon, GraphicOption option,
-                                bool active) {
+void drawAutoAimEnergySweepIcon(UiRendererSrvc& renderer, const AutoAimIcon& icon, GraphicOption option, bool active) {
     const UiColor main   = autoAimMainColor(active);
     const uint8_t nextId = drawAutoAimFan(renderer, icon, option, active, -54.0f);
     drawAutoAimArc(renderer, icon, nextId, option, main, 3.0f, 0.0f, 0.0f, 30.0f, 18.0f, 120.0f);
-    drawAutoAimLine(renderer, icon, static_cast<uint8_t>(nextId + 1), option, main, 3.0f, 27.0f, 16.0f, 34.0f,
-                    23.0f);
+    drawAutoAimLine(renderer, icon, static_cast<uint8_t>(nextId + 1), option, main, 3.0f, 27.0f, 16.0f, 34.0f, 23.0f);
 }
 
 /**
  * @brief 绘制前哨站模式图标，选中时加粗关键部分。
  */
 void drawAutoAimOutpostIcon(UiRendererSrvc& renderer, const AutoAimIcon& icon, GraphicOption option, bool active) {
-    const UiColor main   = autoAimMainColor(active);
-    const UiColor detail = autoAimDetailColor(active);
+    const UiColor main    = autoAimMainColor(active);
+    const UiColor detail  = autoAimDetailColor(active);
     const float mainWidth = active ? 6.0f : 3.0f;
     const float coreWidth = active ? 4.0f : 2.0f;
     drawAutoAimArc(renderer, icon, 0, option, main, mainWidth, 0.0f, 8.0f, 17.0f, 42.0f, 138.0f);
@@ -832,8 +824,8 @@ WheelLegGeometry wheelLegGeometry(const WheelLegPose& pose, const WheelLegConfig
     const float along       = (solveDist * solveDist + kWheelLegUpperLinkLength * kWheelLegUpperLinkLength -
                          kWheelLegLowerLinkLength * kWheelLegLowerLinkLength) /
                         (2.0f * solveDist);
-    const float lateral = std::sqrt(std::fmax(0.0f, kWheelLegUpperLinkLength * kWheelLegUpperLinkLength - along * along)) *
-                        kWheelLegSide;
+    const float lateral =
+        std::sqrt(std::fmax(0.0f, kWheelLegUpperLinkLength * kWheelLegUpperLinkLength - along * along)) * kWheelLegSide;
     WheelLegGeometry geometry{};
     geometry.hip   = {hipX, kWheelLegHipY};
     geometry.knee  = {hipX + lateral, kWheelLegHipY - along};
@@ -886,15 +878,16 @@ void RefereeHudUi::drawDynamic(UiRendererSrvc& renderer, const RefereeHudInput& 
  */
 void RefereeHudUi::updateDynamicDirtyState(const RefereeHudInput& input) {
     const uint8_t legLengthState = normalizeLegLengthState(input.legLengthState);
-    if (legLengthState != _lastLegLengthState || legSignalChanged(input.leftLegThighAngleDeg, _lastLeftLegThighAngleDeg) ||
+    if (legLengthState != _lastLegLengthState ||
+        legSignalChanged(input.leftLegThighAngleDeg, _lastLeftLegThighAngleDeg) ||
         legSignalChanged(input.leftLegHipWheelDistance, _lastLeftLegHipWheelDistance) ||
         legSignalChanged(input.rightLegThighAngleDeg, _lastRightLegThighAngleDeg) ||
         legSignalChanged(input.rightLegHipWheelDistance, _lastRightLegHipWheelDistance)) {
-        _wheelLegDynamicDirty = true;
-        _lastLegLengthState = legLengthState;
-        _lastLeftLegThighAngleDeg = input.leftLegThighAngleDeg;
-        _lastLeftLegHipWheelDistance = input.leftLegHipWheelDistance;
-        _lastRightLegThighAngleDeg = input.rightLegThighAngleDeg;
+        _wheelLegDynamicDirty         = true;
+        _lastLegLengthState           = legLengthState;
+        _lastLeftLegThighAngleDeg     = input.leftLegThighAngleDeg;
+        _lastLeftLegHipWheelDistance  = input.leftLegHipWheelDistance;
+        _lastRightLegThighAngleDeg    = input.rightLegThighAngleDeg;
         _lastRightLegHipWheelDistance = input.rightLegHipWheelDistance;
     }
 
@@ -920,30 +913,30 @@ void RefereeHudUi::updateDynamicDirtyState(const RefereeHudInput& input) {
  */
 void RefereeHudUi::reset(UiRendererSrvc& renderer) {
     renderer.clearGraphic(GraphicDelMode::All);
-    _capVoltageStaticDrawn   = false;
-    _capVoltageDynamicDrawn  = false;
-    _schoolEmblemStaticDrawn = false;
-    _wheelLegStaticDrawn     = false;
-    _wheelLegDynamicDrawn    = false;
-    _wheelLegDynamicDirty    = true;
-    _bottomFrameStaticDrawn  = false;
-    _switchDeckDynamicDrawn  = false;
-    _switchDeckDynamicDirty  = true;
-    _autoAimFrameStaticDrawn = false;
-    _autoAimTrackDynamicDrawn = false;
-    _autoAimTrackDynamicDirty = true;
-    _autoAimIconsDynamicDrawn = false;
-    _autoAimIconsDynamicDirty = true;
-    _lastLegLengthState      = 0xFF;
-    _lastAimModeState        = 0xFF;
-    _lastAimTargetState      = 0xFF;
-    _lastCapSwitchState      = false;
-    _lastTurboSwitchState    = false;
-    _lastFeederSwitchState   = false;
-    _lastSpinSwitchState     = false;
-    _lastLeftLegThighAngleDeg = -1000.0f;
-    _lastLeftLegHipWheelDistance = -1000.0f;
-    _lastRightLegThighAngleDeg = -1000.0f;
+    _capVoltageStaticDrawn        = false;
+    _capVoltageDynamicDrawn       = false;
+    _schoolEmblemStaticDrawn      = false;
+    _wheelLegStaticDrawn          = false;
+    _wheelLegDynamicDrawn         = false;
+    _wheelLegDynamicDirty         = true;
+    _bottomFrameStaticDrawn       = false;
+    _switchDeckDynamicDrawn       = false;
+    _switchDeckDynamicDirty       = true;
+    _autoAimFrameStaticDrawn      = false;
+    _autoAimTrackDynamicDrawn     = false;
+    _autoAimTrackDynamicDirty     = true;
+    _autoAimIconsDynamicDrawn     = false;
+    _autoAimIconsDynamicDirty     = true;
+    _lastLegLengthState           = 0xFF;
+    _lastAimModeState             = 0xFF;
+    _lastAimTargetState           = 0xFF;
+    _lastCapSwitchState           = false;
+    _lastTurboSwitchState         = false;
+    _lastFeederSwitchState        = false;
+    _lastSpinSwitchState          = false;
+    _lastLeftLegThighAngleDeg     = -1000.0f;
+    _lastLeftLegHipWheelDistance  = -1000.0f;
+    _lastRightLegThighAngleDeg    = -1000.0f;
     _lastRightLegHipWheelDistance = -1000.0f;
 }
 
@@ -1145,10 +1138,10 @@ void RefereeHudUi::drawSwitchDeckDynamicGraphics(UiRendererSrvc& renderer) {
     const GraphicOption option = _switchDeckDynamicDrawn ? GraphicOption::Update : GraphicOption::Add;
 
     for (const auto& module : kSwitchModules) {
-        const bool on       = switchModuleEnabled(_input, module);
-        const UiColor active = on ? UiColor::Main : UiColor::White;
-        const UiColor rail   = active;
-        const UiColor fill   = UiColor::White;
+        const bool on         = switchModuleEnabled(_input, module);
+        const UiColor active  = on ? UiColor::Main : UiColor::White;
+        const UiColor rail    = active;
+        const UiColor fill    = UiColor::White;
         const float railWidth = on ? 3.0f : 2.0f;
 
         drawSwitchLine(renderer, module, 0, option, rail, railWidth, -58.0f, -22.0f, -42.0f, 22.0f, 2);
@@ -1157,16 +1150,15 @@ void RefereeHudUi::drawSwitchDeckDynamicGraphics(UiRendererSrvc& renderer) {
         drawSwitchLine(renderer, module, 3, option, rail, railWidth, 42.0f, 22.0f, 58.0f, -22.0f, 2);
         drawSwitchLine(renderer, module, 4, option, UiColor::White, 1.0f, -58.0f, -22.0f, -24.0f, -22.0f, 2);
         drawSwitchLine(renderer, module, 5, option, UiColor::White, 1.0f, 24.0f, -22.0f, 58.0f, -22.0f, 2);
-        drawSwitchCircle(renderer, module, 6, option, active, on ? 4.0f : 2.0f, 0.0f, 0.0f,
-                         on ? 24.0f : 20.0f, 3);
+        drawSwitchCircle(renderer, module, 6, option, active, on ? 4.0f : 2.0f, 0.0f, 0.0f, on ? 24.0f : 20.0f, 3);
         drawSwitchCircle(renderer, module, 7, option, fill, 2.0f, 0.0f, 0.0f, 5.0f, 4);
         drawSwitchIcon(renderer, module, option, active, fill);
     }
 
-    _lastCapSwitchState    = _input.capEnabled;
-    _lastTurboSwitchState  = _input.turboEnabled;
-    _lastFeederSwitchState = _input.feederEnabled;
-    _lastSpinSwitchState   = _input.spinEnabled;
+    _lastCapSwitchState     = _input.capEnabled;
+    _lastTurboSwitchState   = _input.turboEnabled;
+    _lastFeederSwitchState  = _input.feederEnabled;
+    _lastSpinSwitchState    = _input.spinEnabled;
     _switchDeckDynamicDrawn = true;
     _switchDeckDynamicDirty = false;
 }
@@ -1229,7 +1221,7 @@ void RefereeHudUi::drawAutoAimIconsDynamicGraphics(UiRendererSrvc& renderer) {
         }
     }
 
-    _lastAimModeState          = activeState;
+    _lastAimModeState         = activeState;
     _autoAimIconsDynamicDrawn = true;
     _autoAimIconsDynamicDirty = false;
 }
@@ -1317,9 +1309,9 @@ void RefereeHudUi::drawWheelLegDynamicGraphics(UiRendererSrvc& renderer) {
     };
 
     for (uint8_t i = 0; i < static_cast<uint8_t>(sizeof(kWheelLegConfigs) / sizeof(kWheelLegConfigs[0])); ++i) {
-        const auto& leg                  = kWheelLegConfigs[i];
-        const WheelLegGeometry geometry  = wheelLegGeometry(poses[i], leg);
-        const UiColor legColor           = leg.color;
+        const auto& leg                 = kWheelLegConfigs[i];
+        const WheelLegGeometry geometry = wheelLegGeometry(poses[i], leg);
+        const UiColor legColor          = leg.color;
         {
             auto name    = graphicName(kWheelLegGroup, kWheelLegUpperLink, leg.id);
             auto graphic = renderer.draw(name.bytes, option);
@@ -1352,4 +1344,3 @@ void RefereeHudUi::drawWheelLegDynamicGraphics(UiRendererSrvc& renderer) {
     _wheelLegDynamicDrawn = true;
     _wheelLegDynamicDirty = false;
 }
-
