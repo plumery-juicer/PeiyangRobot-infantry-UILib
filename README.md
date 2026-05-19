@@ -184,99 +184,50 @@ RefereeHudSpec::fillDualLegPoseFromState(input);
 
 到这里，其他工程已经可以完成最小接入。
 
-## 线程创建条件与推荐参数
+## 构造环境与推荐参数
 
-库内部创建 **0 个线程**。调用者通常创建 `RefereeHudProducer` 和 `RefereeHudRenderer` 两个任务；如果项目中
-已经有合适的周期任务，也可以把对应函数挂到已有任务里。
+库内真正需要显式构造的是 `UiRendererSrvc`。`RefereeHudUi` 使用默认构造函数，不需要传入参数。
+`RefereeHudProducer` 和 `RefereeHudRenderer` 是推荐的任务职责命名，不是库内类型，任务是否创建由主工程决定。
 
-### 是否需要 `RefereeHudRenderer`
+构造 `UiRendererSrvc` 前需要准备：
 
-需要创建或接入 `RefereeHudRenderer` 的条件：
+- FreeRTOS Queue API 已可用，`FreeRTOS.h` 和 `queue.h` 能被 include。
+- 一个生命周期长于 `UiRendererSrvc` 的外部发送缓冲区。
+- 一个发送完整裁判系统交互帧的回调函数。
+- 明确本机器人裁判系统 `senderId`。
+- 明确调用 `renderer.run()` 的任务或调度位置。
 
-- 使用了 `renderer.draw(...)`、`RefereeHudUi::draw(...)` 或 `renderer.clearGraphic(...)`。
-- 图形命令需要真正发送到裁判系统。
-- 当前工程没有其他任务周期性调用 `UiRendererSrvc::run()`。
-
-不需要单独创建 `RefereeHudRenderer` 的情况：
-
-- 已经有通信发送任务，并且能稳定周期性调用 `renderer.run()`。
-- 只是复用协议结构或 CRC，不产生 UI 图形。
-
-如果没有任何地方调用 `renderer.run()`，图形命令只会进入 FreeRTOS 队列，不会被组包发送。
-
-推荐参数：
-
-| 参数 | 推荐值 | 说明 |
-| --- | --- | --- |
-| 任务名 | `RefereeHudRenderer` | 当前工程中对应 `UiRenderer` |
-| 周期 | `33ms` | 约 30Hz，贴近裁判系统 UI 链路节奏 |
-| 保守周期 | `50ms` | 图形较少或需要降低链路压力时可用 |
-| 优先级 | 普通通信/UI 优先级 | 低于电机控制、IMU、遥控解析等实时任务 |
-| 栈大小 | `1024` 个 `StackType_t` 起步 | 如果任务 API 使用字节数，再按 `sizeof(StackType_t)` 折算 |
-| `queueDepth` | `35` 起步 | 可缓存 5 组 7 图形包；图形突发多时再增大 |
-| `txBufferSize` | `256` 字节起步 | 当前 UI 交互帧足够使用；自定义大 payload 时再增大 |
-
-### 是否需要 `RefereeHudProducer`
-
-需要创建或接入 `RefereeHudProducer` 的条件：
-
-- 使用当前业务 HUD：`RefereeHudUi`。
-- 需要周期性读取机器人状态并填充 `RefereeHudInput`。
-- 电容电压、轮腿姿态等实时量需要周期刷新。
-
-不需要单独创建 `RefereeHudProducer` 的情况：
-
-- 项目只用 `UiRendererSrvc` 手动画少量图形。
-- UI 完全由外部事件触发，例如状态变化时直接调用 `hudUi.draw(...)`。
-- 已经有业务周期任务，可以在该任务里采样数据并调用 `hudUi.draw(...)`。
-
-推荐参数：
-
-| 参数 | 推荐值 | 说明 |
-| --- | --- | --- |
-| 任务名 | `RefereeHudProducer` | 当前工程中对应 `UiMaker` |
-| 周期 | `50ms` | 20Hz，适合电容电压和轮腿状态刷新 |
-| 实时量周期 | `50ms` 起步 | 如果图形数量较多，不建议高于 20Hz |
-| 慢状态周期 | `1000ms` 或事件触发 | 开关、自瞄模式等无变化时不需要高频重画 |
-| 优先级 | 普通业务/UI 优先级 | 通常不高于 renderer，不高于控制闭环 |
-| 栈大小 | `512` 个 `StackType_t` 起步 | 如果任务 API 使用字节数，再按 `sizeof(StackType_t)` 折算 |
-
-### 一个线程还是两个线程
-
-推荐两个任务：
-
-- `RefereeHudProducer`：负责采样数据和调用 `RefereeHudUi::draw()`。
-- `RefereeHudRenderer`：负责调用 `UiRendererSrvc::run()`，按 1/2/5/7 图形包发送。
-
-可以只用一个任务的条件：
-
-- UI 图形数量少。
-- 能接受 producer 和 renderer 使用同一个调度周期。
-- 单任务内会同时调用 `hudUi.draw(...)` 和足够次数的 `renderer.run()`，不会让队列长期积压。
-
-单任务最小写法：
+构造函数参数：
 
 ```cpp
-void refereeHudSingleTask(void*) {
-    if (!renderer.init()) {
-        return;
-    }
-
-    hudUi.reset(renderer);
-
-    for (;;) {
-        RefereeHudInput input = sampleRefereeHudInput();
-        hudUi.draw(renderer, input);
-
-        renderer.run();
-        renderer.run();
-
-        vTaskDelay(pdMS_TO_TICKS(50));
-    }
-}
+static UiRendererSrvc renderer({
+    transmitRefereeUiPacket,
+    nullptr,
+    3,
+    35,
+    refereeUiTxBuffer,
+    sizeof(refereeUiTxBuffer),
+});
 ```
 
-这种写法可以工作，但发送节奏和 UI 生产节奏绑定在一起。UI 复杂后更推荐拆成两个任务。
+参数解释和推荐值：
+
+| 字段 | 含义 | 推荐值 |
+| --- | --- | --- |
+| `packetTransmit` | 发送完整裁判系统交互帧的回调函数 | 必须提供，不能为 `nullptr` |
+| `packetTransmitContext` | 传回发送回调的用户上下文 | 不需要上下文时填 `nullptr` |
+| `senderId` | 写入交互帧头的发送机器人 ID | 使用本机器人裁判系统 ID；步兵常用 `3` |
+| `queueDepth` | 图形 payload 的 FreeRTOS 队列深度 | `35` 起步，可缓存 5 组 7 图形包 |
+| `txBuffer` | renderer 打包交互帧使用的外部缓冲区 | 静态或全局缓冲区，不要使用局部栈变量 |
+| `txBufferSize` | `txBuffer` 字节长度 | `256` 字节起步 |
+
+补充约束：
+
+- `receiverId` 由库按 `senderId + 0x0100` 自动生成。
+- `init()` 会创建 FreeRTOS 队列，建议在任务初始化阶段调用并检查返回值。
+- 如果发送回调启动 DMA 后立即返回，`txBuffer` 在 DMA 完成前不能被下一次 `renderer.run()` 覆盖。
+- 推荐 `renderer.run()` 周期为 `33ms`；图形较少或需要降低链路压力时可用 `50ms`。
+- 使用当前 HUD 业务层时，推荐 `RefereeHudUi::draw()` 周期为 `50ms`。
 
 ## 最小文件清单
 
