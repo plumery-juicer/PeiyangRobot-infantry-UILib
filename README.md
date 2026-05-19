@@ -184,6 +184,100 @@ RefereeHudSpec::fillDualLegPoseFromState(input);
 
 到这里，其他工程已经可以完成最小接入。
 
+## 线程创建条件与推荐参数
+
+库内部创建 **0 个线程**。调用者通常创建 `RefereeHudProducer` 和 `RefereeHudRenderer` 两个任务；如果项目中
+已经有合适的周期任务，也可以把对应函数挂到已有任务里。
+
+### 是否需要 `RefereeHudRenderer`
+
+需要创建或接入 `RefereeHudRenderer` 的条件：
+
+- 使用了 `renderer.draw(...)`、`RefereeHudUi::draw(...)` 或 `renderer.clearGraphic(...)`。
+- 图形命令需要真正发送到裁判系统。
+- 当前工程没有其他任务周期性调用 `UiRendererSrvc::run()`。
+
+不需要单独创建 `RefereeHudRenderer` 的情况：
+
+- 已经有通信发送任务，并且能稳定周期性调用 `renderer.run()`。
+- 只是复用协议结构或 CRC，不产生 UI 图形。
+
+如果没有任何地方调用 `renderer.run()`，图形命令只会进入 FreeRTOS 队列，不会被组包发送。
+
+推荐参数：
+
+| 参数 | 推荐值 | 说明 |
+| --- | --- | --- |
+| 任务名 | `RefereeHudRenderer` | 当前工程中对应 `UiRenderer` |
+| 周期 | `33ms` | 约 30Hz，贴近裁判系统 UI 链路节奏 |
+| 保守周期 | `50ms` | 图形较少或需要降低链路压力时可用 |
+| 优先级 | 普通通信/UI 优先级 | 低于电机控制、IMU、遥控解析等实时任务 |
+| 栈大小 | `1024` 个 `StackType_t` 起步 | 如果任务 API 使用字节数，再按 `sizeof(StackType_t)` 折算 |
+| `queueDepth` | `35` 起步 | 可缓存 5 组 7 图形包；图形突发多时再增大 |
+| `txBufferSize` | `256` 字节起步 | 当前 UI 交互帧足够使用；自定义大 payload 时再增大 |
+
+### 是否需要 `RefereeHudProducer`
+
+需要创建或接入 `RefereeHudProducer` 的条件：
+
+- 使用当前业务 HUD：`RefereeHudUi`。
+- 需要周期性读取机器人状态并填充 `RefereeHudInput`。
+- 电容电压、轮腿姿态等实时量需要周期刷新。
+
+不需要单独创建 `RefereeHudProducer` 的情况：
+
+- 项目只用 `UiRendererSrvc` 手动画少量图形。
+- UI 完全由外部事件触发，例如状态变化时直接调用 `hudUi.draw(...)`。
+- 已经有业务周期任务，可以在该任务里采样数据并调用 `hudUi.draw(...)`。
+
+推荐参数：
+
+| 参数 | 推荐值 | 说明 |
+| --- | --- | --- |
+| 任务名 | `RefereeHudProducer` | 当前工程中对应 `UiMaker` |
+| 周期 | `50ms` | 20Hz，适合电容电压和轮腿状态刷新 |
+| 实时量周期 | `50ms` 起步 | 如果图形数量较多，不建议高于 20Hz |
+| 慢状态周期 | `1000ms` 或事件触发 | 开关、自瞄模式等无变化时不需要高频重画 |
+| 优先级 | 普通业务/UI 优先级 | 通常不高于 renderer，不高于控制闭环 |
+| 栈大小 | `512` 个 `StackType_t` 起步 | 如果任务 API 使用字节数，再按 `sizeof(StackType_t)` 折算 |
+
+### 一个线程还是两个线程
+
+推荐两个任务：
+
+- `RefereeHudProducer`：负责采样数据和调用 `RefereeHudUi::draw()`。
+- `RefereeHudRenderer`：负责调用 `UiRendererSrvc::run()`，按 1/2/5/7 图形包发送。
+
+可以只用一个任务的条件：
+
+- UI 图形数量少。
+- 能接受 producer 和 renderer 使用同一个调度周期。
+- 单任务内会同时调用 `hudUi.draw(...)` 和足够次数的 `renderer.run()`，不会让队列长期积压。
+
+单任务最小写法：
+
+```cpp
+void refereeHudSingleTask(void*) {
+    if (!renderer.init()) {
+        return;
+    }
+
+    hudUi.reset(renderer);
+
+    for (;;) {
+        RefereeHudInput input = sampleRefereeHudInput();
+        hudUi.draw(renderer, input);
+
+        renderer.run();
+        renderer.run();
+
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}
+```
+
+这种写法可以工作，但发送节奏和 UI 生产节奏绑定在一起。UI 复杂后更推荐拆成两个任务。
+
 ## 最小文件清单
 
 其他项目通常只需要写两个本地文件：
@@ -209,7 +303,8 @@ RefereeHudSpec::fillDualLegPoseFromState(input);
 - `UiRendererSrvc::Config::txBuffer` 不为空，`txBufferSize` 足够容纳裁判系统交互帧，建议至少 256 字节。
 - `queueDepth` 大于 0。
 - 调用过 `renderer.init()`，并检查返回值。
-- 有任务周期性调用 `renderer.run()`。
+- 有 `RefereeHudRenderer` 或已有任务周期性调用 `renderer.run()`。
+- 使用 `RefereeHudUi` 时，有 `RefereeHudProducer` 或已有任务周期性填充 `RefereeHudInput` 并调用 `hudUi.draw()`。
 - 所有业务图形通过 `RefereeHudUi::draw()` 或 `renderer.draw()` 提交。
 - 如果使用 DMA，确认发送缓冲区不会在 DMA 完成前被下一帧覆盖。
 
