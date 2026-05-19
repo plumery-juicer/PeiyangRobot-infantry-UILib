@@ -1,116 +1,80 @@
 # referee-hud-ui
 
-RoboMaster 裁判系统 HUD 绘制与发送队列库。
+RoboMaster 裁判系统 HUD 绘制库。这个库的目标是让其他项目可以快速复用当前步兵 UI：把库作为
+submodule 拉进工程，接入 CMake，提供 FreeRTOS Queue、发送回调和外部发送缓冲区，就可以开始绘制。
 
-本库包含裁判系统 UI 协议类型、CRC 计算、渲染队列服务，以及当前步兵 HUD 的业务 UI。库本身不创建线程，
-也不直接访问板级外设。线程创建、调度周期、机器人状态采样、硬件发送函数都由调用者负责。
+库本身不创建线程，不直接访问 HAL、UART、DMA 或项目内的 Blackboard。调用者负责线程调度、数据采样和
+最终硬件发送。
 
-## 环境要求
+## 5 分钟快速导入
 
-- C++17 或更新版本
-- FreeRTOS Queue API
-- 调用者提供的数据包发送回调
-- 调用者提供的发送帧缓冲区
+### 1. 添加 Git 子模块
 
-## 库组件
+在目标工程根目录执行：
 
-- `UiRendererSrvc`：负责图形命令入队、裁判系统交互帧打包、通过注入的回调发送数据。保留链式绘制接口：
-
-```cpp
-renderer.draw(name, GraphicOption::Add)
-    .layer(0)
-    .color(UiColor::Cyan)
-    .width(2)
-    .start(100, 100)
-    .asLine(200, 100);
+```bash
+git submodule add git@github.com:MekCraftLi/PeiyangRobot-infantry-UILib.git ThirdParty/referee-hud-ui
+git submodule update --init --recursive
 ```
 
-- `RefereeHudUi`：将 `RefereeHudInput` 快照转换成当前 HUD 布局，内部处理静态图形 ADD、动态图形 ADD/UPDATE、
-  脏标记过滤以及整屏重置。
-- `RefereeHudInput`：统一的 HUD 输入快照，包含电容电压、四个开关、自瞄状态和双轮腿姿态。
-- `RefereeHudSpec`：HUD 输入归一化和轮腿姿态辅助计算函数。
-- `referee-hud-protocol.h`：RoboMaster 裁判系统 UI 协议枚举和 packed payload 类型。
-- `referee-hud-crc.h`：打包交互帧时使用的 CRC8/CRC16 工具。
+如果工程已经有 `ThirdParty/` 或 `Solution/ThirdParty/` 目录，也可以把路径改成自己的第三方库目录：
 
-## CMake 接入
+```bash
+git submodule add git@github.com:MekCraftLi/PeiyangRobot-infantry-UILib.git Solution/ThirdParty/referee-hud-ui
+```
 
-将库目录加入工程，并链接别名目标：
+克隆已有工程时，使用：
+
+```bash
+git clone --recursive <your-project>
+```
+
+或者克隆后执行：
+
+```bash
+git submodule update --init --recursive
+```
+
+### 2. 在 CMake 中加入库
+
+最小接入：
 
 ```cmake
-add_subdirectory(path/to/referee-hud-ui)
-target_link_libraries(app PRIVATE referee_hud::ui)
+add_subdirectory(ThirdParty/referee-hud-ui)
+target_link_libraries(your_firmware_target PRIVATE referee_hud::ui)
 ```
 
-库导出 `cxx_std_17`。主工程仍然可以使用更高的 C++ 标准。
+如果库放在 `Solution/ThirdParty/referee-hud-ui`：
 
-## FreeRTOS 接入
-
-库通过可覆盖宏引用 FreeRTOS 头文件：
-
-```cpp
-#ifndef REFEREE_HUD_FREERTOS_HEADER
-#define REFEREE_HUD_FREERTOS_HEADER "FreeRTOS.h"
-#endif
-
-#ifndef REFEREE_HUD_FREERTOS_QUEUE_HEADER
-#define REFEREE_HUD_FREERTOS_QUEUE_HEADER "queue.h"
-#endif
-
-#include REFEREE_HUD_FREERTOS_HEADER
-#include REFEREE_HUD_FREERTOS_QUEUE_HEADER
+```cmake
+add_subdirectory(Solution/ThirdParty/referee-hud-ui)
+target_link_libraries(your_firmware_target PRIVATE referee_hud::ui)
 ```
 
-库不写死本地 FreeRTOS 路径。根据主工程情况选择下面任意一种方式。
+库导出 `cxx_std_17`。主工程可以继续使用 C++17、C++20 或 C++23。
 
-### 已有 FreeRTOS CMake Target
+### 3. 处理 FreeRTOS 头文件路径
 
-如果主工程中已经存在以下任一 target，`referee-hud-ui` 会自动链接：
+如果主工程已经有以下任一 CMake target，库会自动链接：
 
 - `FreeRTOS::Kernel`
 - `freertos_kernel`
 - `FreeRTOS`
 - `freertos`
 
-```cmake
-add_subdirectory(path/to/referee-hud-ui)
-target_link_libraries(app PRIVATE referee_hud::ui)
-```
-
-### 自定义 FreeRTOS Target 名称
-
-```cmake
-set(REFEREE_HUD_UI_FREERTOS_TARGET my_freertos_target CACHE STRING "" FORCE)
-add_subdirectory(path/to/referee-hud-ui)
-target_link_libraries(app PRIVATE referee_hud::ui)
-```
-
-### 没有 FreeRTOS Target
-
-如果主工程没有封装 FreeRTOS target，可以直接传入 include 路径：
+如果没有 FreeRTOS target，先把 FreeRTOS include 路径传给库：
 
 ```cmake
 set(REFEREE_HUD_UI_FREERTOS_INCLUDE_DIRS
     "${FREERTOS_DIR}/include;${FREERTOS_DIR}/portable/GCC/ARM_CM7/r0p1;${PROJECT_CONFIG_DIR}"
     CACHE STRING "" FORCE
 )
-add_subdirectory(path/to/referee-hud-ui)
-target_link_libraries(app PRIVATE referee_hud::ui)
+
+add_subdirectory(ThirdParty/referee-hud-ui)
+target_link_libraries(your_firmware_target PRIVATE referee_hud::ui)
 ```
 
-这种方式只解决头文件路径问题。FreeRTOS 的源码编译和链接仍由主工程负责。
-
-### 通过宏指定头文件路径
-
-如果调用者希望直接用宏指定头文件：
-
-```cmake
-target_compile_definitions(app PRIVATE
-    REFEREE_HUD_FREERTOS_HEADER=\"Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h\"
-    REFEREE_HUD_FREERTOS_QUEUE_HEADER=\"Middlewares/Third_Party/FreeRTOS/Source/include/queue.h\"
-)
-```
-
-也可以在 `add_subdirectory` 前设置库的 cache 变量：
+如果你的 FreeRTOS 头文件必须用带路径的 include，也可以传宏：
 
 ```cmake
 set(REFEREE_HUD_UI_FREERTOS_HEADER
@@ -121,12 +85,147 @@ set(REFEREE_HUD_UI_FREERTOS_QUEUE_HEADER
     "Middlewares/Third_Party/FreeRTOS/Source/include/queue.h"
     CACHE STRING "" FORCE
 )
-add_subdirectory(path/to/referee-hud-ui)
+
+add_subdirectory(ThirdParty/referee-hud-ui)
+target_link_libraries(your_firmware_target PRIVATE referee_hud::ui)
 ```
 
-## Renderer 初始化
+### 4. 写一个板级发送适配层
 
-`UiRendererSrvc` 的运行时依赖全部通过 `UiRendererSrvc::Config` 注入：
+库只需要一个“发送完整裁判系统交互帧”的函数。UART、DMA、互斥、发送完成判断都由主工程自己处理。
+
+```cpp
+#include "ui-renderer-srvc.h"
+
+static uint8_t refereeUiTxBuffer[256];
+
+static bool transmitRefereeUiPacket(const uint8_t* data, uint16_t length, void* context) {
+    (void)context;
+
+    // 替换成你的工程自己的裁判系统串口发送函数。
+    // 如果这里启动 DMA 后立即返回，需要确保 refereeUiTxBuffer 在 DMA 完成前不会被再次覆盖。
+    return boardTransmitRefereePacket(data, length);
+}
+
+static UiRendererSrvc renderer({
+    transmitRefereeUiPacket,
+    nullptr,
+    3,
+    35,
+    refereeUiTxBuffer,
+    sizeof(refereeUiTxBuffer),
+});
+```
+
+`senderId` 直接写入交互帧头，`receiverId` 由库自动生成为 `senderId + 0x0100`。
+
+### 5. 在线程中运行 renderer
+
+库不会创建线程。调用者需要创建一个任务周期性调用 `renderer.run()`。
+
+```cpp
+void refereeUiRendererTask(void*) {
+    if (!renderer.init()) {
+        // 初始化失败：检查发送回调、txBuffer、txBufferSize、queueDepth 和 FreeRTOS queue heap。
+        return;
+    }
+
+    for (;;) {
+        renderer.run();
+        vTaskDelay(pdMS_TO_TICKS(33));
+    }
+}
+```
+
+`run()` 每次最多发送一包图形，包大小按裁判系统支持的 1、2、5、7 图形自动选择。
+
+### 6. 周期性喂入 HUD 数据
+
+如果要使用当前步兵 HUD，创建 `RefereeHudUi`，周期性填充 `RefereeHudInput` 后调用 `draw()`。
+
+```cpp
+#include "referee-hud-ui.h"
+
+static RefereeHudUi hudUi;
+
+void refereeHudProducerTask(void*) {
+    hudUi.reset(renderer);
+
+    for (;;) {
+        RefereeHudInput input {};
+        input.capVoltage = readCapVoltage();
+        input.capEnabled = readCapSwitch();
+        input.capError = readCapError();
+
+        input.turboEnabled = readTurboSwitch();
+        input.feederEnabled = readFeederSwitch();
+        input.spinEnabled = readSpinSwitch();
+
+        input.aimModeState = readAimMode();
+        input.aimTargetState = readAimTargetState();
+
+        input.leftLegThighAngleDeg = readLeftLegThighAngleDeg();
+        input.leftLegHipWheelDistance = readLeftLegHipWheelDistance();
+        input.rightLegThighAngleDeg = readRightLegThighAngleDeg();
+        input.rightLegHipWheelDistance = readRightLegHipWheelDistance();
+
+        hudUi.draw(renderer, input);
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}
+```
+
+如果只有三档腿长状态，没有真实双腿姿态数据，可以用库内 helper 填充：
+
+```cpp
+input.legLengthState = RefereeHudSpec::normalizeLegLengthState(readLegState());
+RefereeHudSpec::fillDualLegPoseFromState(input);
+```
+
+到这里，其他工程已经可以完成最小接入。
+
+## 最小文件清单
+
+其他项目通常只需要写两个本地文件：
+
+- `referee-hud-renderer-adapter.cpp`
+  - 持有外部发送缓冲区
+  - 构造 `UiRendererSrvc`
+  - 注入 UART/DMA 发送回调
+  - 在线程中周期调用 `renderer.run()`
+- `referee-hud-producer.cpp`
+  - 从本工程的数据源采样状态
+  - 填充 `RefereeHudInput`
+  - 调用 `RefereeHudUi::reset()` 和 `RefereeHudUi::draw()`
+
+库内不需要知道你的工程使用 Blackboard、消息队列、全局变量还是通信包。
+
+## 快速接入检查表
+
+- `git submodule update --init --recursive` 已执行。
+- CMake 已 `add_subdirectory(...)` 并链接 `referee_hud::ui`。
+- FreeRTOS 的 `FreeRTOS.h` 和 `queue.h` 能被库 include 到。
+- `UiRendererSrvc::Config::packetTransmit` 不为空。
+- `UiRendererSrvc::Config::txBuffer` 不为空，`txBufferSize` 足够容纳裁判系统交互帧，建议至少 256 字节。
+- `queueDepth` 大于 0。
+- 调用过 `renderer.init()`，并检查返回值。
+- 有任务周期性调用 `renderer.run()`。
+- 所有业务图形通过 `RefereeHudUi::draw()` 或 `renderer.draw()` 提交。
+- 如果使用 DMA，确认发送缓冲区不会在 DMA 完成前被下一帧覆盖。
+
+## 库组件说明
+
+- `UiRendererSrvc`：图形命令队列和裁判系统交互帧打包器。
+- `RefereeHudUi`：当前步兵 HUD 业务绘制组件。
+- `RefereeHudInput`：统一的 HUD 输入快照。
+- `RefereeHudInputSource`：可选输入源抽象接口。
+- `RefereeHudSpec`：输入归一化和轮腿姿态辅助函数。
+- `referee-hud-protocol.h`：裁判系统 UI 协议类型。
+- `referee-hud-crc.h`：CRC8/CRC16 工具。
+
+## Renderer API
+
+`UiRendererSrvc::Config`：
 
 ```cpp
 struct UiRendererSrvc::Config {
@@ -142,61 +241,24 @@ struct UiRendererSrvc::Config {
 字段含义：
 
 - `packetTransmit`：最终发送回调，参数是一整帧裁判系统交互数据。
-- `packetTransmitContext`：可选的用户上下文，会原样传回 `packetTransmit`。
-- `senderId`：写入交互帧头的发送机器人 ID。
+- `packetTransmitContext`：用户上下文，会原样传回 `packetTransmit`。
+- `senderId`：发送机器人 ID。
 - `queueDepth`：图形 payload 的 FreeRTOS 队列深度。
-- `txBuffer`：外部发送帧缓冲区，renderer 打包帧时直接写入该缓冲区。
-- `txBufferSize`：`txBuffer` 的字节长度。
+- `txBuffer`：外部发送帧缓冲区。
+- `txBufferSize`：外部发送帧缓冲区长度。
 
-`receiverId` 在库内按 `senderId + 0x0100` 自动生成。
-
-示例：
+常用接口：
 
 ```cpp
-#include "ui-renderer-srvc.h"
-
-static uint8_t refereeUiTxBuffer[256];
-
-bool transmitRefereeUiPacket(const uint8_t* data, uint16_t length, void* context) {
-    (void)context;
-    return boardTransmitRefereePacket(data, length);
-}
-
-static UiRendererSrvc renderer({
-    transmitRefereeUiPacket,
-    nullptr,
-    3,
-    35,
-    refereeUiTxBuffer,
-    sizeof(refereeUiTxBuffer),
-});
-
-void uiRendererInit() {
-    renderer.init();
-}
-
-void uiRendererTaskLoop() {
-    renderer.run();
-}
+bool init();
+void run();
+GraphicProxy draw(const uint8_t name[3], GraphicOption opt = GraphicOption::Add);
+void clearGraphic(GraphicDelMode mode, const uint8_t* graphicName = nullptr);
 ```
 
-`init()` 在以下情况会返回 `false`：
+## 原始图形绘制
 
-- 发送回调为空
-- 外部发送缓冲区为空
-- 外部发送缓冲区长度为 0
-- 队列深度为 0
-- FreeRTOS 队列创建失败
-
-`run()` 每次调用最多发送一组待发送图形。组包数量遵循裁判系统 UI 支持的 1、2、5、7 图形包。
-调用者应在自己创建的线程或任务中周期性调用 `run()`，用于消费图形队列。
-
-如果 `packetTransmit` 启动 DMA 后立即返回，调用者必须保证外部 `txBuffer` 在 DMA 完成前不会被下一次
-`run()` 覆盖。可以通过限制 `run()` 调用时机、在板级适配层复制到另一个 DMA buffer、或使用发送完成标志来处理。
-
-## 绘制原始图形
-
-使用 `draw()` 进行链式绘制。代理对象离开作用域时，图形命令会自动提交到渲染队列。
+链式绘制接口保留原来的使用方式。代理对象离开作用域时，图形命令会提交到 renderer 队列。
 
 ```cpp
 const uint8_t lineName[3] = {'L', 'N', '0'};
@@ -211,7 +273,7 @@ const uint8_t lineName[3] = {'L', 'N', '0'};
 }
 ```
 
-更新已有图形时，使用相同的三字节名称，并将操作改为 `GraphicOption::Update`：
+更新图形时使用同一个三字节名称：
 
 ```cpp
 {
@@ -224,60 +286,50 @@ const uint8_t lineName[3] = {'L', 'N', '0'};
 }
 ```
 
-所有图形都必须先 ADD，再 UPDATE。`RefereeHudUi` 内部已经维护了当前 HUD 布局的 ADD/UPDATE 状态。
+所有图形必须先 ADD，再 UPDATE。`RefereeHudUi` 内部已经维护了当前 HUD 布局的 ADD/UPDATE 状态。
 
-清屏示例：
+清屏：
 
 ```cpp
 renderer.clearGraphic(GraphicDelMode::All);
 ```
 
-## HUD 业务 UI 用法
+## HUD 输入字段
 
-使用当前步兵 HUD 时，优先使用 `RefereeHudUi`，不要在业务层手动拼每个图形。
+`RefereeHudInput` 是当前 HUD 的统一输入：
 
 ```cpp
-#include "referee-hud-ui.h"
-#include "ui-renderer-srvc.h"
-
-static RefereeHudUi hudUi;
-
-void drawHudFrame() {
-    RefereeHudInput input {};
-    input.capVoltage = 23.5f;
-    input.capEnabled = true;
-    input.capError = false;
-    input.turboEnabled = true;
-    input.feederEnabled = false;
-    input.spinEnabled = false;
-    input.aimModeState = 0;
-    input.aimTargetState = static_cast<uint8_t>(RefereeHudAimTarget::Locked);
-
-    input.leftLegThighAngleDeg = 32.0f;
-    input.leftLegHipWheelDistance = 120.0f;
-    input.rightLegThighAngleDeg = 46.0f;
-    input.rightLegHipWheelDistance = 150.0f;
-
-    hudUi.draw(renderer, input);
-}
+struct RefereeHudInput {
+    float capVoltage;
+    bool capEnabled;
+    bool capError;
+    bool resetRequested;
+    bool turboEnabled;
+    bool feederEnabled;
+    bool spinEnabled;
+    uint8_t legLengthState;
+    uint8_t aimModeState;
+    uint8_t aimTargetState;
+    float leftLegThighAngleDeg;
+    float leftLegHipWheelDistance;
+    float rightLegThighAngleDeg;
+    float rightLegHipWheelDistance;
+};
 ```
 
-推荐调用流程：
+轮腿 UI 中的连杆长度是固定的。腿部姿态通过大腿角度和胯关节到轮心的距离变化，而不是通过缩放连杆长度变化。
 
-1. 使用发送回调和外部缓冲区构造 `UiRendererSrvc`。
-2. 调用 `renderer.init()`。
-3. 构造 `RefereeHudUi`。
-4. UI 启动或操作手请求重置时，调用 `hudUi.reset(renderer)`。
-5. 周期性采样机器人状态，填充 `RefereeHudInput`。
-6. 在 UI 生产者任务中调用 `hudUi.draw(renderer, input)`。
-7. 在 renderer 任务中周期性调用 `renderer.run()`，将队列中的图形发给裁判系统。
+`aimTargetState` 建议使用：
 
-`RefereeHudUi::kPeriodSeconds` 当前为 `0.050f`，可作为 HUD 生产者任务的默认周期。
+```cpp
+static_cast<uint8_t>(RefereeHudAimTarget::None)
+static_cast<uint8_t>(RefereeHudAimTarget::Locked)
+static_cast<uint8_t>(RefereeHudAimTarget::Fire)
+```
 
 ## 输入源抽象
 
-库提供 `RefereeHudInputSource`，用于将真实通信数据、Blackboard 数据或仿真信号统一转换为
-`RefereeHudInput`：
+如果项目希望把真实数据源和 UI 绘制解耦，可以实现 `RefereeHudInputSource`：
 
 ```cpp
 class MyHudInputSource final : public RefereeHudInputSource {
@@ -299,27 +351,27 @@ class MyHudInputSource final : public RefereeHudInputSource {
 };
 ```
 
-`RefereeHudSpec::fillDualLegPoseFromState()` 适用于只有三档腿长状态的情况。如果调用者有真实的双腿姿态数据，
-应直接填写以下字段：
+## 当前仓库中的接入参考
 
-- `leftLegThighAngleDeg`
-- `leftLegHipWheelDistance`
-- `rightLegThighAngleDeg`
-- `rightLegHipWheelDistance`
-
-轮腿 UI 中的连杆长度是固定的。腿部姿态通过大腿角度和胯关节到轮心的距离变化，而不是通过缩放连杆长度变化。
-
-## 当前固件中的接入方式
-
-在本仓库中，Chassis 目标分为两层接入这个库：
+本仓库的 Chassis 目标可以作为接入参考：
 
 - `Solution/Application/referee-hud-renderer-app.cpp`
-  - 持有外部 DMA 可用发送缓冲区
-  - 通过 `UiRendererSrvc::Config` 注入 `HAL_UART_Transmit_DMA()`
-  - 在 renderer 应用中周期调用 `UiRendererSrvc::run()`
+  - 持有外部 DMA 可用发送缓冲区。
+  - 注入 `HAL_UART_Transmit_DMA()`。
+  - 周期调用 `UiRendererSrvc::run()`。
 - `Solution/Application/ui-maker-app.cpp`
-  - 从 Blackboard 或仿真输入中采样 HUD 输入快照
-  - 在需要重置时调用 `RefereeHudUi::reset()`
-  - 周期调用 `RefereeHudUi::draw()`
+  - 从 Blackboard 或仿真输入中采样 HUD 输入。
+  - 需要重置时调用 `RefereeHudUi::reset()`。
+  - 周期调用 `RefereeHudUi::draw()`。
 
-库本身不依赖这些应用类。其他工程可以替换为自己的任务调度、数据源和板级发送适配层。
+这些文件只是本工程的适配层，不属于库的必要依赖。其他工程只需要实现自己的适配层即可。
+
+## 更新子模块
+
+使用者更新 UI 库：
+
+```bash
+git submodule update --remote ThirdParty/referee-hud-ui
+```
+
+如果库路径不同，将命令中的路径替换为实际路径。
