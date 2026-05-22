@@ -171,9 +171,9 @@ void refereeHudProducerTask(void*) {
         input.aimTargetState = readAimTargetState();
 
         input.leftLegThighAngleDeg = readLeftLegThighAngleDeg();
-        input.leftLegHipWheelDistance = readLeftLegHipWheelDistance();
+        input.leftLegHipWheelDistance = readLeftLegHipWheelDistanceRatio();
         input.rightLegThighAngleDeg = readRightLegThighAngleDeg();
-        input.rightLegHipWheelDistance = readRightLegHipWheelDistance();
+        input.rightLegHipWheelDistance = readRightLegHipWheelDistanceRatio();
 
         hudUi.draw(renderer, input);
         vTaskDelay(pdMS_TO_TICKS(50));
@@ -369,7 +369,8 @@ struct RefereeHudInput {
 };
 ```
 
-轮腿 UI 中的连杆长度是固定的。腿部姿态通过大腿角度和胯关节到轮心的距离变化，而不是通过缩放连杆长度变化。
+轮腿 UI 中的连杆长度是固定的。腿部姿态通过大腿角度和胯关节到轮心距离比例变化，而不是通过缩放连杆长度变化。
+`leftLegHipWheelDistance` 和 `rightLegHipWheelDistance` 传入的是 `胯关节到轮心距离 / 大腿长度`，例如胯轮距 270 mm、大腿 210 mm 时传入 `1.2857f`。
 
 `aimTargetState` 建议使用：
 

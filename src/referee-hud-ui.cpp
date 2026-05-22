@@ -92,7 +92,7 @@ constexpr float kCapVoltageThresholds[]   = {
 /* ------- wheel-leg widget specification -----------------------------------*/
 /*
  * UI 绘制使用缩放后的 105:125 连杆，对应真实机构 210:250 的大腿/小腿比例。
- * 腿长变化通过 hip-wheel distance 反解关节位置，不缩放连杆长度。
+ * 腿长变化通过 thigh angle 和 hip-wheel distance 连续解算，不缩放连杆长度。
  */
 constexpr float kWheelLegScale               = 0.48f;
 constexpr float kWheelLegHipX                = 960.0f;
@@ -100,14 +100,14 @@ constexpr float kWheelLegHipY                = 174.0f;
 constexpr float kWheelLegSide                = 1.0f;
 constexpr float kWheelLegUpperLinkLength     = 105.0f * kWheelLegScale;
 constexpr float kWheelLegLowerLinkLength     = 125.0f * kWheelLegScale;
-constexpr float kWheelLegDistanceMinRaw      = 95.0f;
-constexpr float kWheelLegDistanceMidRaw      = 135.0f;
-constexpr float kWheelLegDistanceMaxRaw      = 175.0f;
+constexpr float kWheelLegDistanceMinRatio    = RefereeHudSpec::kWheelLegDistanceMinRatio;
+constexpr float kWheelLegDistanceMidRatio    = RefereeHudSpec::kWheelLegDistanceMidRatio;
+constexpr float kWheelLegDistanceMaxRatio    = RefereeHudSpec::kWheelLegDistanceMaxRatio;
 
-constexpr float kWheelLegDistanceMarksRaw[3] = {
-    kWheelLegDistanceMinRaw,
-    kWheelLegDistanceMidRaw,
-    kWheelLegDistanceMaxRaw,
+constexpr float kWheelLegDistanceMarkRatios[3] = {
+    kWheelLegDistanceMinRatio,
+    kWheelLegDistanceMidRatio,
+    kWheelLegDistanceMaxRatio,
 };
 
 /* ------- local geometry types ---------------------------------------------*/
@@ -811,25 +811,34 @@ float clampFloat(float value, float minValue, float maxValue) {
 }
 
 /**
- * @brief 根据固定两连杆和目标 hip-wheel distance 反解轮腿几何。
+ * @brief 根据大腿夹角和目标 hip-wheel distance 连续解算轮腿几何。
  */
 WheelLegGeometry wheelLegGeometry(const WheelLegPose& pose, const WheelLegConfig& leg) {
-    (void)pose.thighAngleDeg;
-    const float hipX        = kWheelLegHipX + leg.hipOffsetX * kWheelLegScale;
-    const float distanceRaw = clampFloat(pose.hipWheelDistance, kWheelLegDistanceMinRaw, kWheelLegDistanceMaxRaw);
-    const float distance    = distanceRaw * kWheelLegScale;
+    const float hipX     = kWheelLegHipX + leg.hipOffsetX * kWheelLegScale;
+    const float distance = pose.hipWheelDistance * kWheelLegUpperLinkLength;
     const float minDistance = std::fabs(kWheelLegLowerLinkLength - kWheelLegUpperLinkLength) + 1.0f;
     const float maxDistance = kWheelLegLowerLinkLength + kWheelLegUpperLinkLength - 1.0f;
     const float solveDist   = clampFloat(distance, minDistance, maxDistance);
-    const float along       = (solveDist * solveDist + kWheelLegUpperLinkLength * kWheelLegUpperLinkLength -
-                         kWheelLegLowerLinkLength * kWheelLegLowerLinkLength) /
-                        (2.0f * solveDist);
-    const float lateral =
-        std::sqrt(std::fmax(0.0f, kWheelLegUpperLinkLength * kWheelLegUpperLinkLength - along * along)) * kWheelLegSide;
+
     WheelLegGeometry geometry{};
     geometry.hip   = {hipX, kWheelLegHipY};
-    geometry.knee  = {hipX + lateral, kWheelLegHipY - along};
-    geometry.wheel = {hipX, kWheelLegHipY - distance};
+    const float angleRad = pose.thighAngleDeg * RefereeHudSpec::kPi / 180.0f;
+    geometry.knee        = {hipX + std::cos(angleRad) * kWheelLegUpperLinkLength * kWheelLegSide,
+                            kWheelLegHipY - std::sin(angleRad) * kWheelLegUpperLinkLength};
+
+    const float hipToKneeX = geometry.knee.x - geometry.hip.x;
+    const float hipToKneeY = geometry.knee.y - geometry.hip.y;
+    const float centerDist = std::sqrt(hipToKneeX * hipToKneeX + hipToKneeY * hipToKneeY);
+    const float dirX       = hipToKneeX / centerDist;
+    const float dirY       = hipToKneeY / centerDist;
+    const float along =
+        (solveDist * solveDist + centerDist * centerDist - kWheelLegLowerLinkLength * kWheelLegLowerLinkLength) /
+        (2.0f * centerDist);
+    const float height  = std::sqrt(std::fmax(0.0f, solveDist * solveDist - along * along));
+    const PointF base   = {geometry.hip.x + dirX * along, geometry.hip.y + dirY * along};
+    const PointF wheelA = {base.x - dirY * height, base.y + dirX * height};
+    const PointF wheelB = {base.x + dirY * height, base.y - dirX * height};
+    geometry.wheel      = wheelA.y < wheelB.y ? wheelA : wheelB;
     return geometry;
 }
 
@@ -850,7 +859,9 @@ WheelLegPose rightWheelLegPose(const RefereeHudInput& input) {
 /**
  * @brief 判断连续腿部信号是否达到需要更新的变化量。
  */
-bool legSignalChanged(float current, float previous) { return std::fabs(current - previous) > 0.35f; }
+bool legAngleSignalChanged(float current, float previous) { return std::fabs(current - previous) > 0.35f; }
+
+bool legDistanceRatioSignalChanged(float current, float previous) { return std::fabs(current - previous) > 0.005f; }
 
 } // namespace
 
@@ -879,10 +890,10 @@ void RefereeHudUi::drawDynamic(UiRendererSrvc& renderer, const RefereeHudInput& 
 void RefereeHudUi::updateDynamicDirtyState(const RefereeHudInput& input) {
     const uint8_t legLengthState = normalizeLegLengthState(input.legLengthState);
     if (legLengthState != _lastLegLengthState ||
-        legSignalChanged(input.leftLegThighAngleDeg, _lastLeftLegThighAngleDeg) ||
-        legSignalChanged(input.leftLegHipWheelDistance, _lastLeftLegHipWheelDistance) ||
-        legSignalChanged(input.rightLegThighAngleDeg, _lastRightLegThighAngleDeg) ||
-        legSignalChanged(input.rightLegHipWheelDistance, _lastRightLegHipWheelDistance)) {
+        legAngleSignalChanged(input.leftLegThighAngleDeg, _lastLeftLegThighAngleDeg) ||
+        legDistanceRatioSignalChanged(input.leftLegHipWheelDistance, _lastLeftLegHipWheelDistance) ||
+        legAngleSignalChanged(input.rightLegThighAngleDeg, _lastRightLegThighAngleDeg) ||
+        legDistanceRatioSignalChanged(input.rightLegHipWheelDistance, _lastRightLegHipWheelDistance)) {
         _wheelLegDynamicDirty         = true;
         _lastLegLengthState           = legLengthState;
         _lastLeftLegThighAngleDeg     = input.leftLegThighAngleDeg;
@@ -1280,7 +1291,7 @@ void RefereeHudUi::drawWheelLegStaticGraphics(UiRendererSrvc& renderer) {
     }
 
     for (uint8_t i = 0; i < 3; ++i) {
-        const float y      = kWheelLegHipY - kWheelLegDistanceMarksRaw[i] * kWheelLegScale;
+        const float y      = kWheelLegHipY - kWheelLegDistanceMarkRatios[i] * kWheelLegUpperLinkLength;
         const float innerX = kWheelLegHipX - 28.0f * kWheelLegScale;
         const float outerX = kWheelLegHipX - 48.0f * kWheelLegScale;
         auto name          = graphicName(kWheelLegGroup, kWheelLegTicks, i);
