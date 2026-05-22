@@ -98,6 +98,7 @@ constexpr float kWheelLegScale               = 0.48f;
 constexpr float kWheelLegHipX                = 960.0f;
 constexpr float kWheelLegHipY                = 174.0f;
 constexpr float kWheelLegSide                = 1.0f;
+constexpr float kWheelLegBendDirection       = 1.0f;
 constexpr float kWheelLegUpperLinkLength     = 105.0f * kWheelLegScale;
 constexpr float kWheelLegLowerLinkLength     = 125.0f * kWheelLegScale;
 constexpr float kWheelLegDistanceMinRatio    = RefereeHudSpec::kWheelLegDistanceMinRatio;
@@ -823,7 +824,7 @@ WheelLegGeometry wheelLegGeometry(const WheelLegPose& pose, const WheelLegConfig
     WheelLegGeometry geometry{};
     geometry.hip   = {hipX, kWheelLegHipY};
     const float angleRad = pose.thighAngleDeg * RefereeHudSpec::kPi / 180.0f;
-    geometry.knee        = {hipX + std::cos(angleRad) * kWheelLegUpperLinkLength * kWheelLegSide,
+    geometry.knee        = {hipX + std::fabs(std::cos(angleRad)) * kWheelLegUpperLinkLength * kWheelLegBendDirection,
                             kWheelLegHipY - std::sin(angleRad) * kWheelLegUpperLinkLength};
 
     const float hipToKneeX = geometry.knee.x - geometry.hip.x;

@@ -49,9 +49,9 @@ struct RefereeHudInput {
     uint8_t legLengthState = 0; ///< 兼容三档腿长状态输入，0/1/2 分别对应短/中/长。
     uint8_t aimModeState = 0; ///< 自瞄模式，0=车辆，1=前哨站，2=能量机关 A，3=能量机关 B。
     uint8_t aimTargetState = static_cast<uint8_t>(RefereeHudAimTarget::None); ///< 自瞄目标状态。
-    float leftLegThighAngleDeg = 41.0f; ///< 左腿大腿相对车体水平基准向下的夹角，单位 deg。
+    float leftLegThighAngleDeg = 41.0f; ///< 左腿大腿相对车体水平基准向下的夹角幅值，单位 deg。
     float leftLegHipWheelDistance = 135.0f / 105.0f; ///< 左腿胯关节到轮心距离 / 大腿长度。
-    float rightLegThighAngleDeg = 41.0f; ///< 右腿大腿相对车体水平基准向下的夹角，单位 deg。
+    float rightLegThighAngleDeg = 41.0f; ///< 右腿大腿相对车体水平基准向下的夹角幅值，单位 deg。
     float rightLegHipWheelDistance = 135.0f / 105.0f; ///< 右腿胯关节到轮心距离 / 大腿长度。
 };
 
@@ -124,7 +124,7 @@ inline uint8_t normalizeAimTargetState(uint8_t state) {
  * thigh angle 和 hip-wheel distance ratio，不通过缩放连杆伪造腿长。
  *
  * @param distanceRatio 胯关节到轮心距离 / 大腿长度。
- * @return 大腿相对车体水平基准向下的参考角，单位 deg。
+ * @return 大腿相对车体水平基准向下的参考夹角幅值，单位 deg。
  */
 inline float wheelLegAngleForDistanceRatio(float distanceRatio) {
     const float minDistance = std::fabs(kWheelLegLowerLinkRaw - kWheelLegUpperLinkRaw) + 1.0f;
