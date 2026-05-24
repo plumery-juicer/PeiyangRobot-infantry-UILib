@@ -44,6 +44,7 @@ struct RefereeHudInput {
     bool capError = false; ///< 电容低压或错误状态。
     bool resetRequested = false; ///< 请求清屏并重新 ADD 所有图形。
     bool turboEnabled = false; ///< 极速模式开关状态。
+    bool stepClimbEnabled = false; ///< 上台阶模式开关状态，与极速模式共用同一个底部图标位。
     bool feederEnabled = false; ///< 发弹机构开关状态。
     bool spinEnabled = false; ///< 底盘自转模式开关状态。
     uint8_t legLengthState = 0; ///< 兼容三档腿长状态输入，0/1/2 分别对应短/中/长。
@@ -225,8 +226,10 @@ class RefereeHudUi {
     uint8_t _lastAimTargetState = 0xFF;
     bool _lastCapSwitchState = false;
     bool _lastTurboSwitchState = false;
+    bool _lastStepClimbSwitchState = false;
     bool _lastFeederSwitchState = false;
     bool _lastSpinSwitchState = false;
+    bool _turboGlyphStepMode = false;
     float _lastLeftLegThighAngleDeg = -1000.0f;
     float _lastLeftLegHipWheelDistance = -1000.0f;
     float _lastRightLegThighAngleDeg = -1000.0f;

@@ -335,20 +335,6 @@ constexpr AutoAimTrackTick kAutoAimTrackTicks[] = {
 
 /// 底部仪表台开放式透视边框。
 constexpr HudLine kBottomFrameLines[] = {
-    {0, UiColor::Cyan, 3, 520.0f, 58.0f, 650.0f, 84.0f},
-    {1, UiColor::Cyan, 3, 690.0f, 92.0f, 848.0f, 128.0f},
-    {2, UiColor::White, 2, 588.0f, 124.0f, 666.0f, 142.0f},
-    {3, UiColor::White, 2, 720.0f, 154.0f, 852.0f, 184.0f},
-    {4, UiColor::White, 1, 520.0f, 58.0f, 576.0f, 112.0f},
-    {5, UiColor::White, 1, 656.0f, 86.0f, 684.0f, 146.0f},
-    {6, UiColor::White, 1, 790.0f, 116.0f, 810.0f, 174.0f},
-    {7, UiColor::Cyan, 3, 1400.0f, 58.0f, 1270.0f, 84.0f},
-    {8, UiColor::Cyan, 3, 1230.0f, 92.0f, 1072.0f, 128.0f},
-    {9, UiColor::White, 2, 1332.0f, 124.0f, 1254.0f, 142.0f},
-    {10, UiColor::White, 2, 1200.0f, 154.0f, 1068.0f, 184.0f},
-    {11, UiColor::White, 1, 1400.0f, 58.0f, 1344.0f, 112.0f},
-    {12, UiColor::White, 1, 1264.0f, 86.0f, 1236.0f, 146.0f},
-    {13, UiColor::White, 1, 1130.0f, 116.0f, 1110.0f, 174.0f},
     {14, UiColor::Cyan, 3, 850.0f, 92.0f, 878.0f, 176.0f},
     {15, UiColor::Cyan, 3, 878.0f, 176.0f, 918.0f, 220.0f},
     {16, UiColor::Cyan, 3, 918.0f, 220.0f, 950.0f, 220.0f},
@@ -716,13 +702,17 @@ void drawCapSwitchIcon(UiRendererSrvc& renderer, const SwitchModule& module, Gra
  * @brief 绘制极速模式开关图标。
  */
 void drawTurboSwitchIcon(UiRendererSrvc& renderer, const SwitchModule& module, GraphicOption option, UiColor active,
-                         UiColor fill) {
-    drawSwitchLine(renderer, module, 10, option, fill, 3.0f, -21.0f, -12.0f, -5.0f, 0.0f, 4);
-    drawSwitchLine(renderer, module, 11, option, fill, 3.0f, -5.0f, 0.0f, -21.0f, 12.0f, 4);
-    drawSwitchLine(renderer, module, 12, option, active, 4.0f, -3.0f, -12.0f, 13.0f, 0.0f, 4);
-    drawSwitchLine(renderer, module, 13, option, active, 4.0f, 13.0f, 0.0f, -3.0f, 12.0f, 4);
-    drawSwitchLine(renderer, module, 14, option, active, 3.0f, 15.0f, -12.0f, 27.0f, 0.0f, 4);
-    drawSwitchLine(renderer, module, 15, option, active, 3.0f, 27.0f, 0.0f, 15.0f, 12.0f, 4);
+                         UiColor fill, bool stepClimbGlyph) {
+    SwitchModule iconModule = module;
+    if (stepClimbGlyph)
+        iconModule.rotationDeg += 90.0f;
+
+    drawSwitchLine(renderer, iconModule, 10, option, fill, 3.0f, -21.0f, -12.0f, -5.0f, 0.0f, 4);
+    drawSwitchLine(renderer, iconModule, 11, option, fill, 3.0f, -5.0f, 0.0f, -21.0f, 12.0f, 4);
+    drawSwitchLine(renderer, iconModule, 12, option, active, 4.0f, -3.0f, -12.0f, 13.0f, 0.0f, 4);
+    drawSwitchLine(renderer, iconModule, 13, option, active, 4.0f, 13.0f, 0.0f, -3.0f, 12.0f, 4);
+    drawSwitchLine(renderer, iconModule, 14, option, active, 3.0f, 15.0f, -12.0f, 27.0f, 0.0f, 4);
+    drawSwitchLine(renderer, iconModule, 15, option, active, 3.0f, 27.0f, 0.0f, 15.0f, 12.0f, 4);
 }
 
 /**
@@ -754,19 +744,22 @@ void drawSpinSwitchIcon(UiRendererSrvc& renderer, const SwitchModule& module, Gr
  * @brief 按开关语义分发图标绘制。
  */
 void drawSwitchIcon(UiRendererSrvc& renderer, const SwitchModule& module, GraphicOption option, UiColor active,
-                    UiColor fill) {
+                    UiColor fill, bool turboGlyphStepMode) {
+    SwitchModule iconModule = module;
+    iconModule.scale *= 1.5f;
+
     switch (module.glyph) {
         case SwitchGlyph::Capacitor:
-            drawCapSwitchIcon(renderer, module, option, active, fill);
+            drawCapSwitchIcon(renderer, iconModule, option, active, fill);
             break;
         case SwitchGlyph::Turbo:
-            drawTurboSwitchIcon(renderer, module, option, active, fill);
+            drawTurboSwitchIcon(renderer, iconModule, option, active, fill, turboGlyphStepMode);
             break;
         case SwitchGlyph::Feeder:
-            drawFeederSwitchIcon(renderer, module, option, active, fill);
+            drawFeederSwitchIcon(renderer, iconModule, option, active, fill);
             break;
         case SwitchGlyph::Spin:
-            drawSpinSwitchIcon(renderer, module, option, active, fill);
+            drawSpinSwitchIcon(renderer, iconModule, option, active, fill);
             break;
         default:
             break;
@@ -781,7 +774,7 @@ bool switchModuleEnabled(const RefereeHudInput& input, const SwitchModule& modul
         case SwitchGlyph::Capacitor:
             return input.capEnabled;
         case SwitchGlyph::Turbo:
-            return input.turboEnabled;
+            return input.turboEnabled || input.stepClimbEnabled;
         case SwitchGlyph::Feeder:
             return input.feederEnabled;
         case SwitchGlyph::Spin:
@@ -915,6 +908,7 @@ void RefereeHudUi::updateDynamicDirtyState(const RefereeHudInput& input) {
     }
 
     if (input.capEnabled != _lastCapSwitchState || input.turboEnabled != _lastTurboSwitchState ||
+        input.stepClimbEnabled != _lastStepClimbSwitchState ||
         input.feederEnabled != _lastFeederSwitchState || input.spinEnabled != _lastSpinSwitchState) {
         _switchDeckDynamicDirty = true;
     }
@@ -944,8 +938,10 @@ void RefereeHudUi::reset(UiRendererSrvc& renderer) {
     _lastAimTargetState           = 0xFF;
     _lastCapSwitchState           = false;
     _lastTurboSwitchState         = false;
+    _lastStepClimbSwitchState     = false;
     _lastFeederSwitchState        = false;
     _lastSpinSwitchState          = false;
+    _turboGlyphStepMode           = false;
     _lastLeftLegThighAngleDeg     = -1000.0f;
     _lastLeftLegHipWheelDistance  = -1000.0f;
     _lastRightLegThighAngleDeg    = -1000.0f;
@@ -1149,6 +1145,11 @@ void RefereeHudUi::drawSwitchDeckDynamicGraphics(UiRendererSrvc& renderer) {
 
     const GraphicOption option = _switchDeckDynamicDrawn ? GraphicOption::Update : GraphicOption::Add;
 
+    if (_input.stepClimbEnabled)
+        _turboGlyphStepMode = true;
+    else if (_input.turboEnabled)
+        _turboGlyphStepMode = false;
+
     for (const auto& module : kSwitchModules) {
         const bool on         = switchModuleEnabled(_input, module);
         const UiColor active  = on ? UiColor::Main : UiColor::White;
@@ -1162,17 +1163,16 @@ void RefereeHudUi::drawSwitchDeckDynamicGraphics(UiRendererSrvc& renderer) {
         drawSwitchLine(renderer, module, 3, option, rail, railWidth, 42.0f, 22.0f, 58.0f, -22.0f, 2);
         drawSwitchLine(renderer, module, 4, option, UiColor::White, 1.0f, -58.0f, -22.0f, -24.0f, -22.0f, 2);
         drawSwitchLine(renderer, module, 5, option, UiColor::White, 1.0f, 24.0f, -22.0f, 58.0f, -22.0f, 2);
-        drawSwitchCircle(renderer, module, 6, option, active, on ? 4.0f : 2.0f, 0.0f, 0.0f, on ? 24.0f : 20.0f, 3);
-        drawSwitchCircle(renderer, module, 7, option, fill, 2.0f, 0.0f, 0.0f, 5.0f, 4);
-        drawSwitchIcon(renderer, module, option, active, fill);
+        drawSwitchIcon(renderer, module, option, active, fill, _turboGlyphStepMode);
     }
 
-    _lastCapSwitchState     = _input.capEnabled;
-    _lastTurboSwitchState   = _input.turboEnabled;
-    _lastFeederSwitchState  = _input.feederEnabled;
-    _lastSpinSwitchState    = _input.spinEnabled;
-    _switchDeckDynamicDrawn = true;
-    _switchDeckDynamicDirty = false;
+    _lastCapSwitchState       = _input.capEnabled;
+    _lastTurboSwitchState     = _input.turboEnabled;
+    _lastStepClimbSwitchState = _input.stepClimbEnabled;
+    _lastFeederSwitchState    = _input.feederEnabled;
+    _lastSpinSwitchState      = _input.spinEnabled;
+    _switchDeckDynamicDrawn   = true;
+    _switchDeckDynamicDirty   = false;
 }
 
 /**

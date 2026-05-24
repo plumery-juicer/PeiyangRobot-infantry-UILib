@@ -164,6 +164,7 @@ void refereeHudProducerTask(void*) {
         input.capError = readCapError();
 
         input.turboEnabled = readTurboSwitch();
+        input.stepClimbEnabled = readStepClimbSwitch();
         input.feederEnabled = readFeederSwitch();
         input.spinEnabled = readSpinSwitch();
 
@@ -357,6 +358,7 @@ struct RefereeHudInput {
     bool capError;
     bool resetRequested;
     bool turboEnabled;
+    bool stepClimbEnabled;
     bool feederEnabled;
     bool spinEnabled;
     uint8_t legLengthState;
