@@ -653,35 +653,93 @@ void drawSwitchLine(UiRendererSrvc& renderer, const SwitchModule& module, uint8_
 }
 
 /**
- * @brief 绘制开关模块局部圆。
+ * @brief 绘制开关图标局部直线，独立缩放图标本体。
  */
-void drawSwitchCircle(UiRendererSrvc& renderer, const SwitchModule& module, uint8_t subId, GraphicOption option,
-                      UiColor color, float width, float x, float y, float radius, uint8_t layer) {
-    const PointF center = switchPoint(module, x, y);
-    auto name           = graphicName(kSwitchDeckGroup, module.id, subId);
-    auto graphic        = renderer.draw(name.bytes, option);
-    graphic.layer(layer)
+void drawSwitchIconLine(UiRendererSrvc& renderer, const SwitchModule& module, uint8_t subId, GraphicOption option,
+                        UiColor color, float width, float x1, float y1, float x2, float y2, float iconScale) {
+    SwitchModule iconModule = module;
+    iconModule.scale *= iconScale;
+
+    const PointF start = switchPoint(iconModule, x1, y1);
+    const PointF end   = switchPoint(iconModule, x2, y2);
+    auto name          = graphicName(kSwitchDeckGroup, module.id, subId);
+    auto graphic       = renderer.draw(name.bytes, option);
+    graphic.layer(4)
         .color(color)
-        .width(roundToUiWidth(width * module.scale))
-        .start(roundToUiCoord(center.x), roundToUiCoord(center.y))
-        .asCircle(roundToUiCoord(radius * module.scale));
+        .width(roundToUiWidth(width * iconModule.scale))
+        .start(roundToUiCoord(start.x), roundToUiCoord(start.y))
+        .asLine(roundToUiCoord(end.x), roundToUiCoord(end.y));
 }
 
 /**
- * @brief 绘制开关模块局部圆弧。
+ * @brief 绘制开关图标局部椭圆弧，复现 2024 旧 UI 图标曲线。
  */
-void drawSwitchArc(UiRendererSrvc& renderer, const SwitchModule& module, uint8_t subId, GraphicOption option,
-                   UiColor color, float width, float x, float y, float radius, float startAngle, float endAngle,
-                   uint8_t layer) {
-    const PointF center = switchPoint(module, x, y);
+void drawSwitchIconArc(UiRendererSrvc& renderer, const SwitchModule& module, uint8_t subId, GraphicOption option,
+                       UiColor color, float width, float x, float y, float radiusX, float radiusY, float startAngle,
+                       float endAngle, float iconScale) {
+    SwitchModule iconModule = module;
+    iconModule.scale *= iconScale;
+
+    const PointF center = switchPoint(iconModule, x, y);
     auto name           = graphicName(kSwitchDeckGroup, module.id, subId);
     auto graphic        = renderer.draw(name.bytes, option);
-    graphic.layer(layer)
+    graphic.layer(4)
         .color(color)
-        .width(roundToUiWidth(width * module.scale))
+        .width(roundToUiWidth(width * iconModule.scale))
         .start(roundToUiCoord(center.x), roundToUiCoord(center.y))
-        .asArc(normalizeArcAngle(startAngle + module.rotationDeg), normalizeArcAngle(endAngle + module.rotationDeg),
-               roundToUiCoord(radius * module.scale), roundToUiCoord(radius * module.scale));
+        .asArc(normalizeArcAngle(startAngle + iconModule.rotationDeg),
+               normalizeArcAngle(endAngle + iconModule.rotationDeg), roundToUiCoord(radiusX * iconModule.scale),
+               roundToUiCoord(radiusY * iconModule.scale));
+}
+
+/**
+ * @brief 绘制开关图标局部圆。
+ */
+void drawSwitchIconCircle(UiRendererSrvc& renderer, const SwitchModule& module, uint8_t subId, GraphicOption option,
+                          UiColor color, float width, float x, float y, float radius, float iconScale) {
+    SwitchModule iconModule = module;
+    iconModule.scale *= iconScale;
+
+    const PointF center = switchPoint(iconModule, x, y);
+    auto name           = graphicName(kSwitchDeckGroup, module.id, subId);
+    auto graphic        = renderer.draw(name.bytes, option);
+    graphic.layer(4)
+        .color(color)
+        .width(roundToUiWidth(width * iconModule.scale))
+        .start(roundToUiCoord(center.x), roundToUiCoord(center.y))
+        .asCircle(roundToUiCoord(radius * iconModule.scale));
+}
+
+/**
+ * @brief 使用 4 条线绘制开关图标局部矩形。
+ */
+void drawSwitchIconRect(UiRendererSrvc& renderer, const SwitchModule& module, uint8_t subId, GraphicOption option,
+                        UiColor color, float width, float x1, float y1, float x2, float y2, float iconScale) {
+    SwitchModule iconModule = module;
+    iconModule.scale *= iconScale;
+
+    const PointF a = switchPoint(iconModule, x1, y1);
+    const PointF b = switchPoint(iconModule, x2, y2);
+    const float left   = a.x < b.x ? a.x : b.x;
+    const float right  = a.x > b.x ? a.x : b.x;
+    const float bottom = a.y < b.y ? a.y : b.y;
+    const float top    = a.y > b.y ? a.y : b.y;
+    const float scaledWidth = width * iconModule.scale;
+
+    auto line = [&](uint8_t id, float sx, float sy, float ex, float ey) {
+        auto name    = graphicName(kSwitchDeckGroup, module.id, id);
+        auto graphic = renderer.draw(name.bytes, option);
+        graphic.layer(4)
+            .color(color)
+            .width(roundToUiWidth(scaledWidth))
+            .start(roundToUiCoord(sx), roundToUiCoord(sy))
+            .asLine(roundToUiCoord(ex), roundToUiCoord(ey));
+    };
+
+    line(subId, left, bottom, right, bottom);
+    line(static_cast<uint8_t>(subId + 1U), right, bottom, right, top);
+    line(static_cast<uint8_t>(subId + 2U), right, top, left, top);
+    line(static_cast<uint8_t>(subId + 3U), left, top, left, bottom);
 }
 
 /**
@@ -689,13 +747,20 @@ void drawSwitchArc(UiRendererSrvc& renderer, const SwitchModule& module, uint8_t
  */
 void drawCapSwitchIcon(UiRendererSrvc& renderer, const SwitchModule& module, GraphicOption option, UiColor active,
                        UiColor fill) {
-    drawSwitchLine(renderer, module, 10, option, fill, 3.0f, -10.0f, 12.0f, -10.0f, -8.0f, 4);
-    drawSwitchLine(renderer, module, 11, option, fill, 3.0f, 10.0f, 12.0f, 10.0f, -8.0f, 4);
-    drawSwitchLine(renderer, module, 12, option, active, 2.0f, -18.0f, 0.0f, -10.0f, 0.0f, 4);
-    drawSwitchLine(renderer, module, 13, option, active, 2.0f, 10.0f, 0.0f, 18.0f, 0.0f, 4);
-    drawSwitchLine(renderer, module, 14, option, active, 2.0f, -2.0f, 15.0f, -8.0f, 3.0f, 4);
-    drawSwitchLine(renderer, module, 15, option, active, 2.0f, -8.0f, 3.0f, 4.0f, 3.0f, 4);
-    drawSwitchLine(renderer, module, 16, option, active, 2.0f, 4.0f, 3.0f, -2.0f, -13.0f, 4);
+    (void)active;
+    (void)fill;
+    constexpr float s = 0.75f;
+    drawSwitchIconLine(renderer, module, 10, option, UiColor::Green, 40.0f, -20.0f, 0.0f, 20.0f, 0.0f, s);
+    drawSwitchIconLine(renderer, module, 11, option, UiColor::White, 7.0f, -25.0f, 15.0f, 25.0f, 15.0f, s);
+    drawSwitchIconLine(renderer, module, 12, option, UiColor::White, 7.0f, -25.0f, -15.0f, 25.0f, -15.0f, s);
+    drawSwitchIconRect(renderer, module, 13, option, UiColor::White, 2.0f, -10.0f, 25.0f, -15.0f, 20.0f, s);
+    drawSwitchIconRect(renderer, module, 17, option, UiColor::White, 2.0f, 10.0f, 25.0f, 15.0f, 20.0f, s);
+    drawSwitchIconLine(renderer, module, 21, option, UiColor::Main, 2.0f, 0.0f, 10.0f, -10.0f, 0.0f, s);
+    drawSwitchIconLine(renderer, module, 22, option, UiColor::Main, 2.0f, -10.0f, 0.0f, 5.0f, -5.0f, s);
+    drawSwitchIconLine(renderer, module, 23, option, UiColor::Main, 2.0f, 5.0f, -5.0f, 0.0f, -10.0f, s);
+    drawSwitchIconLine(renderer, module, 24, option, UiColor::Main, 2.0f, 0.0f, 10.0f, -5.0f, 5.0f, s);
+    drawSwitchIconLine(renderer, module, 25, option, UiColor::Main, 2.0f, -5.0f, 5.0f, 10.0f, 0.0f, s);
+    drawSwitchIconLine(renderer, module, 26, option, UiColor::Main, 2.0f, 10.0f, 0.0f, 0.0f, -10.0f, s);
 }
 
 /**
@@ -707,12 +772,15 @@ void drawTurboSwitchIcon(UiRendererSrvc& renderer, const SwitchModule& module, G
     if (stepClimbGlyph)
         iconModule.rotationDeg += 90.0f;
 
-    drawSwitchLine(renderer, iconModule, 10, option, fill, 3.0f, -21.0f, -12.0f, -5.0f, 0.0f, 4);
-    drawSwitchLine(renderer, iconModule, 11, option, fill, 3.0f, -5.0f, 0.0f, -21.0f, 12.0f, 4);
-    drawSwitchLine(renderer, iconModule, 12, option, active, 4.0f, -3.0f, -12.0f, 13.0f, 0.0f, 4);
-    drawSwitchLine(renderer, iconModule, 13, option, active, 4.0f, 13.0f, 0.0f, -3.0f, 12.0f, 4);
-    drawSwitchLine(renderer, iconModule, 14, option, active, 3.0f, 15.0f, -12.0f, 27.0f, 0.0f, 4);
-    drawSwitchLine(renderer, iconModule, 15, option, active, 3.0f, 27.0f, 0.0f, 15.0f, 12.0f, 4);
+    (void)active;
+    (void)fill;
+    constexpr float s = 0.84f;
+    drawSwitchIconLine(renderer, iconModule, 10, option, UiColor::Green, 10.0f, -32.0f, 12.0f, -12.0f, -2.0f, s);
+    drawSwitchIconLine(renderer, iconModule, 11, option, UiColor::Green, 10.0f, -32.0f, -12.0f, -12.0f, 2.0f, s);
+    drawSwitchIconLine(renderer, iconModule, 12, option, UiColor::Orange, 10.0f, 0.0f, 0.0f, -30.0f, 20.0f, s);
+    drawSwitchIconLine(renderer, iconModule, 13, option, UiColor::Orange, 10.0f, 0.0f, 0.0f, -30.0f, -20.0f, s);
+    drawSwitchIconLine(renderer, iconModule, 14, option, UiColor::Pink, 10.0f, -18.0f, 20.0f, 12.0f, -3.0f, s);
+    drawSwitchIconLine(renderer, iconModule, 15, option, UiColor::Pink, 10.0f, -18.0f, -20.0f, 12.0f, 3.0f, s);
 }
 
 /**
@@ -720,12 +788,27 @@ void drawTurboSwitchIcon(UiRendererSrvc& renderer, const SwitchModule& module, G
  */
 void drawFeederSwitchIcon(UiRendererSrvc& renderer, const SwitchModule& module, GraphicOption option, UiColor active,
                           UiColor fill) {
-    drawSwitchCircle(renderer, module, 10, option, fill, 3.0f, -13.0f, 0.0f, 10.0f, 4);
-    drawSwitchCircle(renderer, module, 11, option, fill, 3.0f, 13.0f, 0.0f, 10.0f, 4);
-    drawSwitchLine(renderer, module, 12, option, active, 4.0f, -3.0f, 0.0f, 3.0f, 0.0f, 4);
-    drawSwitchLine(renderer, module, 13, option, active, 4.0f, 27.0f, 0.0f, 40.0f, 0.0f, 4);
-    drawSwitchLine(renderer, module, 14, option, active, 3.0f, 34.0f, 6.0f, 40.0f, 0.0f, 4);
-    drawSwitchLine(renderer, module, 15, option, active, 3.0f, 34.0f, -6.0f, 40.0f, 0.0f, 4);
+    (void)active;
+    (void)fill;
+    constexpr float s = 0.75f;
+    drawSwitchIconLine(renderer, module, 10, option, UiColor::Main, 15.0f, 0.0f, 12.0f, -10.0f, -18.0f, s);
+    drawSwitchIconLine(renderer, module, 11, option, UiColor::Main, 15.0f, -10.0f, -18.0f, 10.0f, -18.0f, s);
+    drawSwitchIconLine(renderer, module, 12, option, UiColor::Main, 15.0f, 10.0f, -18.0f, 0.0f, 12.0f, s);
+    drawSwitchIconArc(renderer, module, 13, option, UiColor::Pink, 5.0f, 4.0f, 8.0f, 7.0f, 15.0f, 270.0f,
+                      335.0f, s);
+    drawSwitchIconArc(renderer, module, 14, option, UiColor::Pink, 5.0f, -4.0f, 8.0f, 7.0f, 15.0f, 25.0f,
+                      90.0f, s);
+    drawSwitchIconLine(renderer, module, 15, option, UiColor::Pink, 10.0f, 0.0f, 13.0f, 0.0f, -7.0f, s);
+    drawSwitchIconArc(renderer, module, 16, option, UiColor::Pink, 5.0f, -6.0f, -22.0f, 7.0f, 15.0f,
+                      270.0f, 335.0f, s);
+    drawSwitchIconArc(renderer, module, 17, option, UiColor::Pink, 5.0f, -14.0f, -22.0f, 7.0f, 15.0f, 25.0f,
+                      90.0f, s);
+    drawSwitchIconLine(renderer, module, 18, option, UiColor::Pink, 10.0f, -10.0f, -17.0f, -10.0f, -37.0f, s);
+    drawSwitchIconArc(renderer, module, 19, option, UiColor::Pink, 5.0f, 14.0f, -22.0f, 7.0f, 15.0f, 270.0f,
+                      335.0f, s);
+    drawSwitchIconArc(renderer, module, 20, option, UiColor::Pink, 5.0f, 6.0f, -22.0f, 7.0f, 15.0f, 25.0f,
+                      90.0f, s);
+    drawSwitchIconLine(renderer, module, 21, option, UiColor::Pink, 10.0f, 10.0f, -17.0f, 10.0f, -37.0f, s);
 }
 
 /**
@@ -733,11 +816,16 @@ void drawFeederSwitchIcon(UiRendererSrvc& renderer, const SwitchModule& module, 
  */
 void drawSpinSwitchIcon(UiRendererSrvc& renderer, const SwitchModule& module, GraphicOption option, UiColor active,
                         UiColor fill) {
-    drawSwitchArc(renderer, module, 10, option, active, 4.0f, 0.0f, 0.0f, 18.0f, 35.0f, 300.0f, 4);
-    drawSwitchLine(renderer, module, 11, option, active, 3.0f, 15.0f, 13.0f, 25.0f, 13.0f, 4);
-    drawSwitchLine(renderer, module, 12, option, active, 3.0f, 25.0f, 13.0f, 20.0f, 3.0f, 4);
-    drawSwitchLine(renderer, module, 13, option, fill, 2.0f, -12.0f, -4.0f, 12.0f, -4.0f, 4);
-    drawSwitchLine(renderer, module, 14, option, fill, 2.0f, -8.0f, 8.0f, 8.0f, 8.0f, 4);
+    (void)active;
+    (void)fill;
+    constexpr float s = 0.93f;
+    drawSwitchIconCircle(renderer, module, 10, option, UiColor::Purple, 20.0f, 0.0f, 0.0f, 15.0f, s);
+    drawSwitchIconArc(renderer, module, 11, option, UiColor::White, 3.0f, 8.0f, 0.0f, 18.0f, 18.0f, 300.0f,
+                      120.0f, s);
+    drawSwitchIconArc(renderer, module, 12, option, UiColor::White, 3.0f, -4.0f, 7.0f, 18.0f, 18.0f, 180.0f,
+                      360.0f, s);
+    drawSwitchIconArc(renderer, module, 13, option, UiColor::White, 3.0f, -4.0f, -7.0f, 18.0f, 18.0f, 60.0f,
+                      240.0f, s);
 }
 
 /**
@@ -745,21 +833,18 @@ void drawSpinSwitchIcon(UiRendererSrvc& renderer, const SwitchModule& module, Gr
  */
 void drawSwitchIcon(UiRendererSrvc& renderer, const SwitchModule& module, GraphicOption option, UiColor active,
                     UiColor fill, bool turboGlyphStepMode) {
-    SwitchModule iconModule = module;
-    iconModule.scale *= 1.5f;
-
     switch (module.glyph) {
         case SwitchGlyph::Capacitor:
-            drawCapSwitchIcon(renderer, iconModule, option, active, fill);
+            drawCapSwitchIcon(renderer, module, option, active, fill);
             break;
         case SwitchGlyph::Turbo:
-            drawTurboSwitchIcon(renderer, iconModule, option, active, fill, turboGlyphStepMode);
+            drawTurboSwitchIcon(renderer, module, option, active, fill, turboGlyphStepMode);
             break;
         case SwitchGlyph::Feeder:
-            drawFeederSwitchIcon(renderer, iconModule, option, active, fill);
+            drawFeederSwitchIcon(renderer, module, option, active, fill);
             break;
         case SwitchGlyph::Spin:
-            drawSpinSwitchIcon(renderer, iconModule, option, active, fill);
+            drawSpinSwitchIcon(renderer, module, option, active, fill);
             break;
         default:
             break;
