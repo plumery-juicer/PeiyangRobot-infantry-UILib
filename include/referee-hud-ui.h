@@ -47,7 +47,6 @@ struct RefereeHudInput {
     bool stepClimbEnabled = false; ///< 上台阶模式开关状态，与极速模式共用同一个底部图标位。
     bool feederEnabled = false; ///< 发弹机构开关状态。
     bool spinEnabled = false; ///< 底盘自转模式开关状态。
-    uint8_t legLengthState = 0; ///< 兼容三档腿长状态输入，0/1/2 分别对应短/中/长。
     uint8_t aimModeState = 0; ///< 自瞄模式，0=车辆，1=前哨站，2=能量机关 A，3=能量机关 B。
     uint8_t aimTargetState = static_cast<uint8_t>(RefereeHudAimTarget::None); ///< 自瞄目标状态。
     float leftLegThighAngleDeg = 41.0f; ///< 左腿大腿相对车体水平基准向下的夹角幅值，单位 deg。
@@ -90,7 +89,7 @@ constexpr float kVoltageStage4 = 26.0f;
 /// 轮腿机构原始连杆长度。105:125 对应真实大腿/小腿 210:250 的比例。
 constexpr float kWheelLegUpperLinkRaw = 105.0f;
 constexpr float kWheelLegLowerLinkRaw = 125.0f;
-/// 轮心到胯关节距离与大腿长度的三档参考比例。
+/// 轮心到胯关节距离 / 大腿长度的推荐显示范围。
 constexpr float kWheelLegDistanceMinRatio = 95.0f / kWheelLegUpperLinkRaw;
 constexpr float kWheelLegDistanceMidRatio = 135.0f / kWheelLegUpperLinkRaw;
 constexpr float kWheelLegDistanceMaxRatio = 175.0f / kWheelLegUpperLinkRaw;
@@ -107,8 +106,6 @@ inline float clampFloat(float value, float minValue, float maxValue) {
     return value;
 }
 
-inline uint8_t normalizeLegLengthState(uint8_t state) { return static_cast<uint8_t>(state % 3); }
-
 inline uint8_t normalizeAimModeState(uint8_t state) { return static_cast<uint8_t>(state % 4); }
 
 inline uint8_t normalizeAimTargetState(uint8_t state) {
@@ -121,8 +118,8 @@ inline uint8_t normalizeAimTargetState(uint8_t state) {
 /**
  * @brief 根据胯关节到轮心距离反解腿部参考角。
  *
- * 该函数只用于从三档腿长输入生成稳定的测试/默认姿态。连续绘制时应优先直接传入
- * thigh angle 和 hip-wheel distance ratio，不通过缩放连杆伪造腿长。
+ * 该函数只提供几何参考。实际绘制由 RefereeHudInput 中的 thigh angle 和
+ * hip-wheel distance ratio 直接决定，不通过缩放连杆伪造腿长。
  *
  * @param distanceRatio 胯关节到轮心距离 / 大腿长度。
  * @return 大腿相对车体水平基准向下的参考夹角幅值，单位 deg。
@@ -139,24 +136,6 @@ inline float wheelLegAngleForDistanceRatio(float distanceRatio) {
 }
 
 inline float wheelLegAngleForDistance(float distanceRatio) { return wheelLegAngleForDistanceRatio(distanceRatio); }
-
-/**
- * @brief 根据三档腿长状态填充左右腿姿态。
- * @param input 需要补全腿部姿态字段的输入快照。
- */
-inline void fillDualLegPoseFromState(RefereeHudInput& input) {
-    constexpr float marks[] = {
-        kWheelLegDistanceMinRatio,
-        kWheelLegDistanceMidRatio,
-        kWheelLegDistanceMaxRatio,
-    };
-    const float distanceRatio = marks[normalizeLegLengthState(input.legLengthState)];
-    const float angle = wheelLegAngleForDistanceRatio(distanceRatio);
-    input.leftLegThighAngleDeg = angle;
-    input.leftLegHipWheelDistance = distanceRatio;
-    input.rightLegThighAngleDeg = angle;
-    input.rightLegHipWheelDistance = distanceRatio;
-}
 } // namespace RefereeHudSpec
 
 /* ------- class prototypes --------------------------------------------------*/
@@ -221,7 +200,6 @@ class RefereeHudUi {
     bool _autoAimIconsDynamicDirty = true;
 
     /* 上一帧输入缓存，用于减少不必要的 UPDATE 图形。 */
-    uint8_t _lastLegLengthState = 0xFF;
     uint8_t _lastAimModeState = 0xFF;
     uint8_t _lastAimTargetState = 0xFF;
     bool _lastCapSwitchState = false;

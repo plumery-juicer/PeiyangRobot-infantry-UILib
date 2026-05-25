@@ -13,6 +13,7 @@
 #include "referee-hud-ui.h"
 
 #include <cmath>
+#include <cstddef>
 namespace {
 
 /* ------- graphic name allocation ------------------------------------------*/
@@ -268,6 +269,55 @@ struct SwitchModule {
     float scale;
 };
 
+/**
+ * @brief 2024 旧 RM 开关图标的基础图形类型。
+ */
+enum class SwitchIconPrimitiveType : uint8_t {
+    Line,
+    Arc,
+    Circle,
+    Rect,
+};
+
+/**
+ * @brief 开关图标局部几何命令。
+ *
+ * Line/Rect 使用 x1/y1/x2/y2；Circle 使用 x1/y1/radiusX；Arc 使用 x1/y1/radiusX/radiusY/startAngle/endAngle。
+ */
+struct SwitchIconPrimitive {
+    SwitchIconPrimitiveType type;
+    uint8_t id;
+    UiColor color;
+    float width;
+    float x1;
+    float y1;
+    float x2;
+    float y2;
+    float radiusX;
+    float radiusY;
+    float startAngle;
+    float endAngle;
+};
+
+constexpr SwitchIconPrimitive iconLine(uint8_t id, UiColor color, float width, float x1, float y1, float x2,
+                                       float y2) {
+    return {SwitchIconPrimitiveType::Line, id, color, width, x1, y1, x2, y2, 0.0f, 0.0f, 0.0f, 0.0f};
+}
+
+constexpr SwitchIconPrimitive iconArc(uint8_t id, UiColor color, float width, float x, float y, float radiusX,
+                                      float radiusY, float startAngle, float endAngle) {
+    return {SwitchIconPrimitiveType::Arc, id, color, width, x, y, 0.0f, 0.0f, radiusX, radiusY, startAngle, endAngle};
+}
+
+constexpr SwitchIconPrimitive iconCircle(uint8_t id, UiColor color, float width, float x, float y, float radius) {
+    return {SwitchIconPrimitiveType::Circle, id, color, width, x, y, 0.0f, 0.0f, radius, 0.0f, 0.0f, 0.0f};
+}
+
+constexpr SwitchIconPrimitive iconRect(uint8_t id, UiColor color, float width, float x1, float y1, float x2,
+                                       float y2) {
+    return {SwitchIconPrimitiveType::Rect, id, color, width, x1, y1, x2, y2, 0.0f, 0.0f, 0.0f, 0.0f};
+}
+
 /* ------- static drawing tables --------------------------------------------*/
 
 /// 双腿车体外形静态线段。
@@ -355,6 +405,59 @@ constexpr SwitchModule kSwitchModules[] = {
     {3, SwitchGlyph::Spin, 1308.0f, 98.0f, 12.0f, 0.78f},
 };
 
+/// 2024 旧 RM 电容开关图标几何。
+constexpr float kCapSwitchIconScale = 0.75f;
+constexpr SwitchIconPrimitive kCapSwitchIcon[] = {
+    iconLine(10, UiColor::Green, 40.0f, -20.0f, 0.0f, 20.0f, 0.0f),
+    iconLine(11, UiColor::White, 7.0f, -25.0f, 15.0f, 25.0f, 15.0f),
+    iconLine(12, UiColor::White, 7.0f, -25.0f, -15.0f, 25.0f, -15.0f),
+    iconRect(13, UiColor::White, 2.0f, -10.0f, 25.0f, -15.0f, 20.0f),
+    iconRect(17, UiColor::White, 2.0f, 10.0f, 25.0f, 15.0f, 20.0f),
+    iconLine(21, UiColor::Main, 2.0f, 0.0f, 10.0f, -10.0f, 0.0f),
+    iconLine(22, UiColor::Main, 2.0f, -10.0f, 0.0f, 5.0f, -5.0f),
+    iconLine(23, UiColor::Main, 2.0f, 5.0f, -5.0f, 0.0f, -10.0f),
+    iconLine(24, UiColor::Main, 2.0f, 0.0f, 10.0f, -5.0f, 5.0f),
+    iconLine(25, UiColor::Main, 2.0f, -5.0f, 5.0f, 10.0f, 0.0f),
+    iconLine(26, UiColor::Main, 2.0f, 10.0f, 0.0f, 0.0f, -10.0f),
+};
+
+/// 2024 旧 RM 飞坡/上台阶图标几何。
+constexpr float kTurboSwitchIconScale = 0.84f;
+constexpr SwitchIconPrimitive kTurboSwitchIcon[] = {
+    iconLine(10, UiColor::Green, 10.0f, -32.0f, 12.0f, -12.0f, -2.0f),
+    iconLine(11, UiColor::Green, 10.0f, -32.0f, -12.0f, -12.0f, 2.0f),
+    iconLine(12, UiColor::Orange, 10.0f, 0.0f, 0.0f, -30.0f, 20.0f),
+    iconLine(13, UiColor::Orange, 10.0f, 0.0f, 0.0f, -30.0f, -20.0f),
+    iconLine(14, UiColor::Pink, 10.0f, -18.0f, 20.0f, 12.0f, -3.0f),
+    iconLine(15, UiColor::Pink, 10.0f, -18.0f, -20.0f, 12.0f, 3.0f),
+};
+
+/// 2024 旧 RM 摩擦轮/发弹机构图标几何。
+constexpr float kFeederSwitchIconScale = 0.75f;
+constexpr SwitchIconPrimitive kFeederSwitchIcon[] = {
+    iconLine(10, UiColor::Main, 15.0f, 0.0f, 12.0f, -10.0f, -18.0f),
+    iconLine(11, UiColor::Main, 15.0f, -10.0f, -18.0f, 10.0f, -18.0f),
+    iconLine(12, UiColor::Main, 15.0f, 10.0f, -18.0f, 0.0f, 12.0f),
+    iconArc(13, UiColor::Pink, 5.0f, 4.0f, 8.0f, 7.0f, 15.0f, 270.0f, 335.0f),
+    iconArc(14, UiColor::Pink, 5.0f, -4.0f, 8.0f, 7.0f, 15.0f, 25.0f, 90.0f),
+    iconLine(15, UiColor::Pink, 10.0f, 0.0f, 13.0f, 0.0f, -7.0f),
+    iconArc(16, UiColor::Pink, 5.0f, -6.0f, -22.0f, 7.0f, 15.0f, 270.0f, 335.0f),
+    iconArc(17, UiColor::Pink, 5.0f, -14.0f, -22.0f, 7.0f, 15.0f, 25.0f, 90.0f),
+    iconLine(18, UiColor::Pink, 10.0f, -10.0f, -17.0f, -10.0f, -37.0f),
+    iconArc(19, UiColor::Pink, 5.0f, 14.0f, -22.0f, 7.0f, 15.0f, 270.0f, 335.0f),
+    iconArc(20, UiColor::Pink, 5.0f, 6.0f, -22.0f, 7.0f, 15.0f, 25.0f, 90.0f),
+    iconLine(21, UiColor::Pink, 10.0f, 10.0f, -17.0f, 10.0f, -37.0f),
+};
+
+/// 2024 旧 RM 小陀螺图标几何。
+constexpr float kSpinSwitchIconScale = 0.93f;
+constexpr SwitchIconPrimitive kSpinSwitchIcon[] = {
+    iconCircle(10, UiColor::Purple, 20.0f, 0.0f, 0.0f, 15.0f),
+    iconArc(11, UiColor::White, 3.0f, 8.0f, 0.0f, 18.0f, 18.0f, 300.0f, 120.0f),
+    iconArc(12, UiColor::White, 3.0f, -4.0f, 7.0f, 18.0f, 18.0f, 180.0f, 360.0f),
+    iconArc(13, UiColor::White, 3.0f, -4.0f, -7.0f, 18.0f, 18.0f, 60.0f, 240.0f),
+};
+
 /* ------- utility helpers ---------------------------------------------------*/
 
 /**
@@ -377,8 +480,6 @@ uint16_t roundToUiCoord(float value) { return clampToUInt16(value + 0.5f, 0.0f, 
  * @brief 转换为裁判 UI 宽度字段。
  */
 uint16_t roundToUiWidth(float value) { return clampToUInt16(value + 0.5f, 1.0f, 1023.0f); }
-
-uint8_t normalizeLegLengthState(uint8_t state) { return static_cast<uint8_t>(state % 3); }
 
 uint8_t normalizeAimModeState(uint8_t state) { return static_cast<uint8_t>(state % 4); }
 
@@ -743,24 +844,50 @@ void drawSwitchIconRect(UiRendererSrvc& renderer, const SwitchModule& module, ui
 }
 
 /**
+ * @brief 绘制一个表驱动的开关图标基础图形。
+ */
+void drawSwitchIconPrimitive(UiRendererSrvc& renderer, const SwitchModule& module,
+                             const SwitchIconPrimitive& primitive, GraphicOption option, float iconScale) {
+    switch (primitive.type) {
+        case SwitchIconPrimitiveType::Line:
+            drawSwitchIconLine(renderer, module, primitive.id, option, primitive.color, primitive.width, primitive.x1,
+                               primitive.y1, primitive.x2, primitive.y2, iconScale);
+            break;
+        case SwitchIconPrimitiveType::Arc:
+            drawSwitchIconArc(renderer, module, primitive.id, option, primitive.color, primitive.width, primitive.x1,
+                              primitive.y1, primitive.radiusX, primitive.radiusY, primitive.startAngle,
+                              primitive.endAngle, iconScale);
+            break;
+        case SwitchIconPrimitiveType::Circle:
+            drawSwitchIconCircle(renderer, module, primitive.id, option, primitive.color, primitive.width, primitive.x1,
+                                 primitive.y1, primitive.radiusX, iconScale);
+            break;
+        case SwitchIconPrimitiveType::Rect:
+            drawSwitchIconRect(renderer, module, primitive.id, option, primitive.color, primitive.width, primitive.x1,
+                               primitive.y1, primitive.x2, primitive.y2, iconScale);
+            break;
+    }
+}
+
+/**
+ * @brief 按表绘制完整开关图标。
+ */
+template <std::size_t N>
+void drawSwitchIconPrimitives(UiRendererSrvc& renderer, const SwitchModule& module,
+                              const SwitchIconPrimitive (&primitives)[N], GraphicOption option, float iconScale) {
+    for (const auto& primitive : primitives) {
+        drawSwitchIconPrimitive(renderer, module, primitive, option, iconScale);
+    }
+}
+
+/**
  * @brief 绘制电容开关图标。
  */
 void drawCapSwitchIcon(UiRendererSrvc& renderer, const SwitchModule& module, GraphicOption option, UiColor active,
                        UiColor fill) {
     (void)active;
     (void)fill;
-    constexpr float s = 0.75f;
-    drawSwitchIconLine(renderer, module, 10, option, UiColor::Green, 40.0f, -20.0f, 0.0f, 20.0f, 0.0f, s);
-    drawSwitchIconLine(renderer, module, 11, option, UiColor::White, 7.0f, -25.0f, 15.0f, 25.0f, 15.0f, s);
-    drawSwitchIconLine(renderer, module, 12, option, UiColor::White, 7.0f, -25.0f, -15.0f, 25.0f, -15.0f, s);
-    drawSwitchIconRect(renderer, module, 13, option, UiColor::White, 2.0f, -10.0f, 25.0f, -15.0f, 20.0f, s);
-    drawSwitchIconRect(renderer, module, 17, option, UiColor::White, 2.0f, 10.0f, 25.0f, 15.0f, 20.0f, s);
-    drawSwitchIconLine(renderer, module, 21, option, UiColor::Main, 2.0f, 0.0f, 10.0f, -10.0f, 0.0f, s);
-    drawSwitchIconLine(renderer, module, 22, option, UiColor::Main, 2.0f, -10.0f, 0.0f, 5.0f, -5.0f, s);
-    drawSwitchIconLine(renderer, module, 23, option, UiColor::Main, 2.0f, 5.0f, -5.0f, 0.0f, -10.0f, s);
-    drawSwitchIconLine(renderer, module, 24, option, UiColor::Main, 2.0f, 0.0f, 10.0f, -5.0f, 5.0f, s);
-    drawSwitchIconLine(renderer, module, 25, option, UiColor::Main, 2.0f, -5.0f, 5.0f, 10.0f, 0.0f, s);
-    drawSwitchIconLine(renderer, module, 26, option, UiColor::Main, 2.0f, 10.0f, 0.0f, 0.0f, -10.0f, s);
+    drawSwitchIconPrimitives(renderer, module, kCapSwitchIcon, option, kCapSwitchIconScale);
 }
 
 /**
@@ -774,13 +901,7 @@ void drawTurboSwitchIcon(UiRendererSrvc& renderer, const SwitchModule& module, G
 
     (void)active;
     (void)fill;
-    constexpr float s = 0.84f;
-    drawSwitchIconLine(renderer, iconModule, 10, option, UiColor::Green, 10.0f, -32.0f, 12.0f, -12.0f, -2.0f, s);
-    drawSwitchIconLine(renderer, iconModule, 11, option, UiColor::Green, 10.0f, -32.0f, -12.0f, -12.0f, 2.0f, s);
-    drawSwitchIconLine(renderer, iconModule, 12, option, UiColor::Orange, 10.0f, 0.0f, 0.0f, -30.0f, 20.0f, s);
-    drawSwitchIconLine(renderer, iconModule, 13, option, UiColor::Orange, 10.0f, 0.0f, 0.0f, -30.0f, -20.0f, s);
-    drawSwitchIconLine(renderer, iconModule, 14, option, UiColor::Pink, 10.0f, -18.0f, 20.0f, 12.0f, -3.0f, s);
-    drawSwitchIconLine(renderer, iconModule, 15, option, UiColor::Pink, 10.0f, -18.0f, -20.0f, 12.0f, 3.0f, s);
+    drawSwitchIconPrimitives(renderer, iconModule, kTurboSwitchIcon, option, kTurboSwitchIconScale);
 }
 
 /**
@@ -790,25 +911,7 @@ void drawFeederSwitchIcon(UiRendererSrvc& renderer, const SwitchModule& module, 
                           UiColor fill) {
     (void)active;
     (void)fill;
-    constexpr float s = 0.75f;
-    drawSwitchIconLine(renderer, module, 10, option, UiColor::Main, 15.0f, 0.0f, 12.0f, -10.0f, -18.0f, s);
-    drawSwitchIconLine(renderer, module, 11, option, UiColor::Main, 15.0f, -10.0f, -18.0f, 10.0f, -18.0f, s);
-    drawSwitchIconLine(renderer, module, 12, option, UiColor::Main, 15.0f, 10.0f, -18.0f, 0.0f, 12.0f, s);
-    drawSwitchIconArc(renderer, module, 13, option, UiColor::Pink, 5.0f, 4.0f, 8.0f, 7.0f, 15.0f, 270.0f,
-                      335.0f, s);
-    drawSwitchIconArc(renderer, module, 14, option, UiColor::Pink, 5.0f, -4.0f, 8.0f, 7.0f, 15.0f, 25.0f,
-                      90.0f, s);
-    drawSwitchIconLine(renderer, module, 15, option, UiColor::Pink, 10.0f, 0.0f, 13.0f, 0.0f, -7.0f, s);
-    drawSwitchIconArc(renderer, module, 16, option, UiColor::Pink, 5.0f, -6.0f, -22.0f, 7.0f, 15.0f,
-                      270.0f, 335.0f, s);
-    drawSwitchIconArc(renderer, module, 17, option, UiColor::Pink, 5.0f, -14.0f, -22.0f, 7.0f, 15.0f, 25.0f,
-                      90.0f, s);
-    drawSwitchIconLine(renderer, module, 18, option, UiColor::Pink, 10.0f, -10.0f, -17.0f, -10.0f, -37.0f, s);
-    drawSwitchIconArc(renderer, module, 19, option, UiColor::Pink, 5.0f, 14.0f, -22.0f, 7.0f, 15.0f, 270.0f,
-                      335.0f, s);
-    drawSwitchIconArc(renderer, module, 20, option, UiColor::Pink, 5.0f, 6.0f, -22.0f, 7.0f, 15.0f, 25.0f,
-                      90.0f, s);
-    drawSwitchIconLine(renderer, module, 21, option, UiColor::Pink, 10.0f, 10.0f, -17.0f, 10.0f, -37.0f, s);
+    drawSwitchIconPrimitives(renderer, module, kFeederSwitchIcon, option, kFeederSwitchIconScale);
 }
 
 /**
@@ -818,14 +921,7 @@ void drawSpinSwitchIcon(UiRendererSrvc& renderer, const SwitchModule& module, Gr
                         UiColor fill) {
     (void)active;
     (void)fill;
-    constexpr float s = 0.93f;
-    drawSwitchIconCircle(renderer, module, 10, option, UiColor::Purple, 20.0f, 0.0f, 0.0f, 15.0f, s);
-    drawSwitchIconArc(renderer, module, 11, option, UiColor::White, 3.0f, 8.0f, 0.0f, 18.0f, 18.0f, 300.0f,
-                      120.0f, s);
-    drawSwitchIconArc(renderer, module, 12, option, UiColor::White, 3.0f, -4.0f, 7.0f, 18.0f, 18.0f, 180.0f,
-                      360.0f, s);
-    drawSwitchIconArc(renderer, module, 13, option, UiColor::White, 3.0f, -4.0f, -7.0f, 18.0f, 18.0f, 60.0f,
-                      240.0f, s);
+    drawSwitchIconPrimitives(renderer, module, kSpinSwitchIcon, option, kSpinSwitchIconScale);
 }
 
 /**
@@ -967,14 +1063,11 @@ void RefereeHudUi::drawDynamic(UiRendererSrvc& renderer, const RefereeHudInput& 
  * @brief 根据新输入更新动态图形脏标记。
  */
 void RefereeHudUi::updateDynamicDirtyState(const RefereeHudInput& input) {
-    const uint8_t legLengthState = normalizeLegLengthState(input.legLengthState);
-    if (legLengthState != _lastLegLengthState ||
-        legAngleSignalChanged(input.leftLegThighAngleDeg, _lastLeftLegThighAngleDeg) ||
+    if (legAngleSignalChanged(input.leftLegThighAngleDeg, _lastLeftLegThighAngleDeg) ||
         legDistanceRatioSignalChanged(input.leftLegHipWheelDistance, _lastLeftLegHipWheelDistance) ||
         legAngleSignalChanged(input.rightLegThighAngleDeg, _lastRightLegThighAngleDeg) ||
         legDistanceRatioSignalChanged(input.rightLegHipWheelDistance, _lastRightLegHipWheelDistance)) {
         _wheelLegDynamicDirty         = true;
-        _lastLegLengthState           = legLengthState;
         _lastLeftLegThighAngleDeg     = input.leftLegThighAngleDeg;
         _lastLeftLegHipWheelDistance  = input.leftLegHipWheelDistance;
         _lastRightLegThighAngleDeg    = input.rightLegThighAngleDeg;
@@ -1018,7 +1111,6 @@ void RefereeHudUi::reset(UiRendererSrvc& renderer) {
     _autoAimTrackDynamicDirty     = true;
     _autoAimIconsDynamicDrawn     = false;
     _autoAimIconsDynamicDirty     = true;
-    _lastLegLengthState           = 0xFF;
     _lastAimModeState             = 0xFF;
     _lastAimTargetState           = 0xFF;
     _lastCapSwitchState           = false;
@@ -1324,7 +1416,7 @@ void RefereeHudUi::drawAutoAimIconsDynamicGraphics(UiRendererSrvc& renderer) {
 }
 
 /**
- * @brief 绘制轮腿车体和三档腿长刻度的静态图形。
+ * @brief 绘制轮腿车体和腿长参考刻度的静态图形。
  */
 void RefereeHudUi::drawWheelLegStaticGraphics(UiRendererSrvc& renderer) {
     if (_wheelLegStaticDrawn)

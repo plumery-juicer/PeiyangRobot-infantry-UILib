@@ -185,12 +185,10 @@ void refereeHudProducerTask(void*) {
 }
 ```
 
-如果只有三档腿长状态，没有真实双腿姿态数据，可以用库内 helper 填充：
+轮腿 UI 不再提供三档腿长输入接口。调用者需要直接填入左右腿的大腿角度和胯轮距比例：
 
-```cpp
-input.legLengthState = RefereeHudSpec::normalizeLegLengthState(readLegState());
-RefereeHudSpec::fillDualLegPoseFromState(input);
-```
+- `leftLegThighAngleDeg` / `rightLegThighAngleDeg`：大腿相对车体水平基准向下的夹角，单位 `deg`。
+- `leftLegHipWheelDistance` / `rightLegHipWheelDistance`：胯关节到轮心距离 / 大腿长度。
 
 到这里，其他工程已经可以完成最小接入。
 
@@ -275,7 +273,7 @@ static UiRendererSrvc renderer({
 - `RefereeHudUi`：当前步兵 HUD 业务绘制组件。
 - `RefereeHudInput`：统一的 HUD 输入快照。
 - `RefereeHudInputSource`：可选输入源抽象接口。
-- `RefereeHudSpec`：输入归一化和轮腿姿态辅助函数。
+- `RefereeHudSpec`：输入归一化、电压阈值和轮腿几何参考常量。
 - `referee-hud-protocol.h`：裁判系统 UI 协议类型。
 - `referee-hud-crc.h`：CRC8/CRC16 工具。
 
@@ -364,7 +362,6 @@ struct RefereeHudInput {
     bool stepClimbEnabled;
     bool feederEnabled;
     bool spinEnabled;
-    uint8_t legLengthState;
     uint8_t aimModeState;
     uint8_t aimTargetState;
     float leftLegThighAngleDeg;
@@ -374,8 +371,30 @@ struct RefereeHudInput {
 };
 ```
 
+字段格式和 UI 影响：
+
+| 字段 | 输入格式 | UI 影响 |
+| --- | --- | --- |
+| `capVoltage` | `float`，单位 `V` | 顶部电容弧长度和电压数字 |
+| `capEnabled` | `bool` | 电容弧颜色逻辑和底部电容开关高亮 |
+| `capError` | `bool` | 电容开启且错误时，电容弧和电压数字显示为 `Pink` |
+| `resetRequested` | `bool` | 业务重置信号；调用者检测后调用 `RefereeHudUi::reset(renderer)` |
+| `turboEnabled` | `bool` | 底部飞坡/极速开关高亮，图标保持水平箭头 |
+| `stepClimbEnabled` | `bool` | 与飞坡共用同一开关位，开启时图标旋转 90 度表示上台阶 |
+| `feederEnabled` | `bool` | 底部发弹机构/摩擦轮开关高亮 |
+| `spinEnabled` | `bool` | 底部小陀螺开关高亮 |
+| `aimModeState` | `uint8_t`，0~3 | 自瞄模式选中项，0=车辆，1=前哨站，2=能量机关 A，3=能量机关 B |
+| `aimTargetState` | `uint8_t`，见 `RefereeHudAimTarget` | 中间目标状态轨道颜色，None=Pink，Locked=Green，Fire=Purple |
+| `leftLegThighAngleDeg` | `float`，单位 `deg` | 左腿大腿角度 |
+| `leftLegHipWheelDistance` | `float`，胯轮距 / 大腿长度 | 左腿轮心到胯关节距离，用于解算小腿和轮子位置 |
+| `rightLegThighAngleDeg` | `float`，单位 `deg` | 右腿大腿角度 |
+| `rightLegHipWheelDistance` | `float`，胯轮距 / 大腿长度 | 右腿轮心到胯关节距离，用于解算小腿和轮子位置 |
+
 轮腿 UI 中的连杆长度是固定的。腿部姿态通过大腿角度和胯关节到轮心距离比例变化，而不是通过缩放连杆长度变化。
 `leftLegHipWheelDistance` 和 `rightLegHipWheelDistance` 传入的是 `胯关节到轮心距离 / 大腿长度`，例如胯轮距 270 mm、大腿 210 mm 时传入 `1.2857f`。
+
+`RefereeHudSpec::kWheelLegDistanceMinRatio`、`kWheelLegDistanceMidRatio` 和
+`kWheelLegDistanceMaxRatio` 只是推荐显示范围参考。库不会再根据三档状态生成腿姿。
 
 `aimTargetState` 建议使用：
 
@@ -401,9 +420,10 @@ class MyHudInputSource final : public RefereeHudInputSource {
         input.capError = readCapError();
         input.aimModeState = readAimMode();
         input.aimTargetState = readAimTargetState();
-
-        input.legLengthState = RefereeHudSpec::normalizeLegLengthState(readLegState());
-        RefereeHudSpec::fillDualLegPoseFromState(input);
+        input.leftLegThighAngleDeg = readLeftLegThighAngleDeg();
+        input.leftLegHipWheelDistance = readLeftLegHipWheelDistanceRatio();
+        input.rightLegThighAngleDeg = readRightLegThighAngleDeg();
+        input.rightLegHipWheelDistance = readRightLegHipWheelDistanceRatio();
         return input;
     }
 };
@@ -433,3 +453,15 @@ git submodule update --remote ThirdParty/referee-hud-ui
 ```
 
 如果库路径不同，将命令中的路径替换为实际路径。
+
+## 更新日志
+
+### v1.2.1
+
+- 删除 `RefereeHudInput::legLengthState`，轮腿 UI 不再接受三档腿长状态。
+- 删除 `RefereeHudSpec::normalizeLegLengthState()` 和 `RefereeHudSpec::fillDualLegPoseFromState()`。
+- 轮腿渲染只根据 `leftLegThighAngleDeg`、`leftLegHipWheelDistance`、`rightLegThighAngleDeg`
+  和 `rightLegHipWheelDistance` 四个连续输入更新。
+- 保留 `kWheelLegDistanceMinRatio`、`kWheelLegDistanceMidRatio`、`kWheelLegDistanceMaxRatio`
+  作为外部输入的推荐比例范围。
+- README 补全 `RefereeHudInput` 字段格式、UI 影响和 `UiRendererSrvc::Config` 构造参数说明。
