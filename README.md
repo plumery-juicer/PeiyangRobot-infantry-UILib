@@ -456,6 +456,13 @@ git submodule update --remote ThirdParty/referee-hud-ui
 
 ## 更新日志
 
+### v1.2.2
+
+- 补全 `RefereeHudInput`、`UiRendererSrvc::Config`、链式绘图代理和裁判系统协议结构的 Doxygen 注释。
+- 在 renderer 实现中补充队列打包、清屏哨兵、浮点数编码、receiverId 生成和阻塞提交策略说明。
+- 在 HUD 业务实现中补充轮腿三角解算、动态图形脏标记、电容最小可见弧、自瞄图标局部更新和飞坡/上台阶图标方向保持说明。
+- 本版本只提升代码可读性和接口文档完整性，不改变 UI 渲染行为。
+
 ### v1.2.1
 
 - 删除 `RefereeHudInput::legLengthState`，轮腿 UI 不再接受三档腿长状态。

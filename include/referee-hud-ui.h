@@ -39,19 +39,19 @@ enum class RefereeHudAimTarget : uint8_t {
  * 这样 UI 组件可以脱离具体工程的数据来源，方便硬件、仿真和 HTML 预览复用同一套语义。
  */
 struct RefereeHudInput {
-    float capVoltage = 0.0f; ///< 超级电容电压，单位 V。
-    bool capEnabled = false; ///< 电容开关状态。
-    bool capError = false; ///< 电容低压或错误状态。
-    bool resetRequested = false; ///< 请求清屏并重新 ADD 所有图形。
-    bool turboEnabled = false; ///< 极速模式开关状态。
-    bool stepClimbEnabled = false; ///< 上台阶模式开关状态，与极速模式共用同一个底部图标位。
-    bool feederEnabled = false; ///< 发弹机构开关状态。
-    bool spinEnabled = false; ///< 底盘自转模式开关状态。
+    float capVoltage = 0.0f; ///< 超级电容电压，单位 V；用于电容弧长度和数字显示。
+    bool capEnabled = false; ///< 电容开关状态；影响电容弧颜色和底部电容开关高亮。
+    bool capError = false; ///< 电容低压或错误状态；capEnabled 为 true 时会将电容显示置为 Pink。
+    bool resetRequested = false; ///< 业务层清屏请求；调用者检测到该状态后应调用 RefereeHudUi::reset()。
+    bool turboEnabled = false; ///< 飞坡/极速模式开关状态；与 stepClimbEnabled 共用同一个底部图标位。
+    bool stepClimbEnabled = false; ///< 上台阶模式开关状态；开启时会将飞坡箭头旋转为向上方向。
+    bool feederEnabled = false; ///< 发弹机构/摩擦轮开关状态；控制底部对应开关高亮。
+    bool spinEnabled = false; ///< 底盘自转模式开关状态；控制底部小陀螺开关高亮。
     uint8_t aimModeState = 0; ///< 自瞄模式，0=车辆，1=前哨站，2=能量机关 A，3=能量机关 B。
-    uint8_t aimTargetState = static_cast<uint8_t>(RefereeHudAimTarget::None); ///< 自瞄目标状态。
-    float leftLegThighAngleDeg = 41.0f; ///< 左腿大腿相对车体水平基准向下的夹角幅值，单位 deg。
+    uint8_t aimTargetState = static_cast<uint8_t>(RefereeHudAimTarget::None); ///< 自瞄目标状态轨道颜色。
+    float leftLegThighAngleDeg = 41.0f; ///< 左腿大腿相对车体水平基准向下的夹角，单位 deg。
     float leftLegHipWheelDistance = 135.0f / 105.0f; ///< 左腿胯关节到轮心距离 / 大腿长度。
-    float rightLegThighAngleDeg = 41.0f; ///< 右腿大腿相对车体水平基准向下的夹角幅值，单位 deg。
+    float rightLegThighAngleDeg = 41.0f; ///< 右腿大腿相对车体水平基准向下的夹角，单位 deg。
     float rightLegHipWheelDistance = 135.0f / 105.0f; ///< 右腿胯关节到轮心距离 / 大腿长度。
 };
 
@@ -106,8 +106,14 @@ inline float clampFloat(float value, float minValue, float maxValue) {
     return value;
 }
 
+/**
+ * @brief 将任意自瞄模式值映射到 0~3。
+ */
 inline uint8_t normalizeAimModeState(uint8_t state) { return static_cast<uint8_t>(state % 4); }
 
+/**
+ * @brief 将任意自瞄目标状态钳制到 RefereeHudAimTarget 支持范围。
+ */
 inline uint8_t normalizeAimTargetState(uint8_t state) {
     const auto fire = static_cast<uint8_t>(RefereeHudAimTarget::Fire);
     if (state >= fire)
@@ -135,6 +141,9 @@ inline float wheelLegAngleForDistanceRatio(float distanceRatio) {
     return 90.0f - std::acos(alongRatio) * 180.0f / kPi;
 }
 
+/**
+ * @brief wheelLegAngleForDistanceRatio() 的兼容别名。
+ */
 inline float wheelLegAngleForDistance(float distanceRatio) { return wheelLegAngleForDistanceRatio(distanceRatio); }
 } // namespace RefereeHudSpec
 
@@ -168,11 +177,14 @@ class RefereeHudUi {
 
     /**
      * @brief 只绘制静态图形。
+     * @param renderer 裁判 UI 渲染服务。
      */
     void drawStatic(UiRendererSrvc& renderer);
 
     /**
      * @brief 只绘制动态/状态图形。
+     * @param renderer 裁判 UI 渲染服务。
+     * @param input 当前 HUD 输入快照。
      */
     void drawDynamic(UiRendererSrvc& renderer, const RefereeHudInput& input);
 

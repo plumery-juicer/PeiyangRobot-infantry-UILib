@@ -8,10 +8,13 @@ UiRendererSrvc::UiRendererSrvc(const Config& config)
       _txBufferSize(config.txBufferSize) {}
 
 bool UiRendererSrvc::init() {
+    /* Renderer 依赖外部发送函数和外部发送缓冲区。这里直接失败，避免后续 run()
+     * 静默丢包或写入空指针。 */
     if (_packetTransmitCallback == nullptr || _txBuffer == nullptr || _txBufferSize == 0 || _queueDepth == 0) {
         return false;
     }
 
+    /* init() 可以重复调用。已有队列时只清空队列，保持对象生命周期由调用者控制。 */
     if (_renderQueue == nullptr) {
         _renderQueue = xQueueCreate(_queueDepth, sizeof(RMInteractionFigurePayload));
     } else {
@@ -37,6 +40,8 @@ void UiRendererSrvc::run() {
         return;
     }
 
+    /* clearGraphic(All) 需要先清空图形队列，再发送删除全部图形包。为了让删除请求仍然
+     * 走同一条发送链路，队列中使用 0xFF/0xFF 作为内部哨兵 payload。 */
     if (peekPayload.graphicName[0] == 0xFF && peekPayload.graphicName[1] == 0xFF) {
         xQueueReceive(_renderQueue, &peekPayload, 0);
 
@@ -47,6 +52,8 @@ void UiRendererSrvc::run() {
 
     uint8_t batchSize = 0;
     RMSubCmdId subCmdId = RMSubCmdId::RenderOne;
+    /* 裁判系统图形包只支持 1/2/5/7 四种批量大小。每次 run() 取当前队列中
+     * 能组成的最大合法包，减少发送次数，同时不等待未来图形。 */
     if (waitingCount >= 7) {
         batchSize = 7;
         subCmdId = RMSubCmdId::RenderSeven;
@@ -87,6 +94,7 @@ UiRendererSrvc::GraphicProxy::GraphicProxy(GraphicProxy&& other) noexcept
       _commitOnDestruct(std::exchange(other._commitOnDestruct, false)) {}
 
 UiRendererSrvc::GraphicProxy::~GraphicProxy() {
+    /* 链式绘制依赖 RAII 提交：局部作用域结束时，完整 payload 自动进入队列。 */
     if (_commitOnDestruct && _renderer != nullptr) {
         _renderer->_submitToPipeline(_payload);
     }
@@ -153,6 +161,7 @@ UiRendererSrvc::GraphicProxy& UiRendererSrvc::GraphicProxy::asArc(uint16_t start
 UiRendererSrvc::GraphicProxy& UiRendererSrvc::GraphicProxy::asFloat(float value, uint16_t fontSize) {
     _payload.type = static_cast<uint32_t>(GraphicType::Float);
     _payload.param1 = fontSize;
+    /* 裁判系统浮点图形以 value * 1000 的整数形式拆入 param3/endX/endY。 */
     const int32_t scaledValue = static_cast<int32_t>(value * 1000.0f);
     _payload.param3 = scaledValue & 0x3FF;
     _payload.endX = (scaledValue >> 10) & 0x7FF;
@@ -193,6 +202,7 @@ void UiRendererSrvc::sendCustomPacket(uint16_t subCmdId, const void* payloadData
     header.sof = 0xA5;
     header.dataLength = dataSegmentLen;
     header.seq = _seqCounter++;
+    /* 帧头 CRC8 覆盖 sof/dataLength/seq/crc8，appendCrc8 会填充最后一个字节。 */
     std::memcpy(&_txBuffer[offset], &header, sizeof(header) - sizeof(header.crc8));
     RefereeHudCrc::appendCrc8(_txBuffer, sizeof(header));
     offset += sizeof(header);
@@ -204,6 +214,7 @@ void UiRendererSrvc::sendCustomPacket(uint16_t subCmdId, const void* payloadData
     RmInteractiveHeader interactHeader {};
     interactHeader.subCmdId = subCmdId;
     interactHeader.senderId = _senderId;
+    /* 选手端客户端 ID 按机器人 ID + 0x0100 生成，调用者只需传入 senderId。 */
     interactHeader.receiverId = static_cast<uint16_t>(_senderId + 0x0100U);
     std::memcpy(&_txBuffer[offset], &interactHeader, sizeof(interactHeader));
     offset += sizeof(interactHeader);
@@ -234,6 +245,8 @@ void UiRendererSrvc::_applyProperties(RMInteractionFigurePayload& payload, const
 
 void UiRendererSrvc::_submitToPipeline(const RMInteractionFigurePayload& payload) {
     if (_renderQueue != nullptr) {
+        /* 队列满时阻塞等待，保证 ADD/UPDATE 顺序不被丢弃。调用者应给 renderer
+         * 任务足够高的运行频率，避免生产端长期阻塞。 */
         xQueueSend(_renderQueue, &payload, portMAX_DELAY);
     }
 }
@@ -321,6 +334,7 @@ void UiRendererSrvc::clearGraphic(GraphicDelMode mode, const uint8_t* graphicNam
             if (_renderQueue == nullptr) {
                 return;
             }
+            /* 删除全部图形时先丢弃未发送的旧图形，避免清屏后又刷新出旧状态。 */
             xQueueReset(_renderQueue);
             payload.graphicName[0] = 0xFF;
             payload.graphicName[1] = 0xFF;

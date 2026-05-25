@@ -998,9 +998,14 @@ WheelLegGeometry wheelLegGeometry(const WheelLegPose& pose, const WheelLegConfig
     WheelLegGeometry geometry{};
     geometry.hip   = {hipX, kWheelLegHipY};
     const float angleRad = pose.thighAngleDeg * RefereeHudSpec::kPi / 180.0f;
+    /* 大腿长度固定。角度只决定膝关节绕胯关节的位置，不通过缩放连杆表达腿长。 */
     geometry.knee        = {hipX + std::fabs(std::cos(angleRad)) * kWheelLegUpperLinkLength * kWheelLegBendDirection,
                             kWheelLegHipY - std::sin(angleRad) * kWheelLegUpperLinkLength};
 
+    /* 小腿端点由两个圆求交得到：
+     * - 圆 1：以胯关节为圆心，半径为 hip-wheel distance；
+     * - 圆 2：以膝关节为圆心，半径为小腿长度。
+     * 这能保证大腿/小腿长度恒定，只让关节角度和胯轮距改变姿态。 */
     const float hipToKneeX = geometry.knee.x - geometry.hip.x;
     const float hipToKneeY = geometry.knee.y - geometry.hip.y;
     const float centerDist = std::sqrt(hipToKneeX * hipToKneeX + hipToKneeY * hipToKneeY);
@@ -1013,6 +1018,7 @@ WheelLegGeometry wheelLegGeometry(const WheelLegPose& pose, const WheelLegConfig
     const PointF base   = {geometry.hip.x + dirX * along, geometry.hip.y + dirY * along};
     const PointF wheelA = {base.x - dirY * height, base.y + dirX * height};
     const PointF wheelB = {base.x + dirY * height, base.y - dirX * height};
+    /* 侧视图中轮子应落在支撑地面方向，因此取两个交点里 y 更低的点。 */
     geometry.wheel      = wheelA.y < wheelB.y ? wheelA : wheelB;
     return geometry;
 }
@@ -1063,6 +1069,8 @@ void RefereeHudUi::drawDynamic(UiRendererSrvc& renderer, const RefereeHudInput& 
  * @brief 根据新输入更新动态图形脏标记。
  */
 void RefereeHudUi::updateDynamicDirtyState(const RefereeHudInput& input) {
+    /* 电容电压本身每帧都会更新；腿部、自瞄模式和开关只在输入变化超过阈值时更新，
+     * 避免静态状态反复塞入发送队列。 */
     if (legAngleSignalChanged(input.leftLegThighAngleDeg, _lastLeftLegThighAngleDeg) ||
         legDistanceRatioSignalChanged(input.leftLegHipWheelDistance, _lastLeftLegHipWheelDistance) ||
         legAngleSignalChanged(input.rightLegThighAngleDeg, _lastRightLegThighAngleDeg) ||
@@ -1134,6 +1142,7 @@ void RefereeHudUi::drawDynamicGraphics(UiRendererSrvc& renderer) {
     const GraphicOption option      = _capVoltageDynamicDrawn ? GraphicOption::Update : GraphicOption::Add;
     const UiColor color             = capVoltageColor(_input);
     const uint16_t voltageAngleSpan = capGaugeVoltageAngleSpan(_input.capVoltage);
+    /* 裁判系统圆弧在起止角相同时可能不可见。即使电压为 0，也保留 1 度可见跨度。 */
     const uint16_t visibleAngleSpan =
         voltageAngleSpan > kCapGaugeCenterGap ? voltageAngleSpan : static_cast<uint16_t>(kCapGaugeCenterGap + 1);
 
@@ -1322,6 +1331,7 @@ void RefereeHudUi::drawSwitchDeckDynamicGraphics(UiRendererSrvc& renderer) {
 
     const GraphicOption option = _switchDeckDynamicDrawn ? GraphicOption::Update : GraphicOption::Add;
 
+    /* 飞坡和上台阶共用一个图标位。关闭两者时保持最后一次方向，避免关闭态图标反复旋转。 */
     if (_input.stepClimbEnabled)
         _turboGlyphStepMode = true;
     else if (_input.turboEnabled)
@@ -1403,6 +1413,7 @@ void RefereeHudUi::drawAutoAimIconsDynamicGraphics(UiRendererSrvc& renderer) {
             drawAutoAimIcon(renderer, icon, GraphicOption::Add, activeState);
         }
     } else {
+        /* 自瞄模式变化时只更新新旧两个图标。未选中的其他图标保持白色，不需要重复发送。 */
         for (const auto& icon : kAutoAimIcons) {
             if (icon.state == activeState || icon.state == _lastAimModeState) {
                 drawAutoAimIcon(renderer, icon, GraphicOption::Update, activeState);
@@ -1492,6 +1503,7 @@ void RefereeHudUi::drawWheelLegDynamicGraphics(UiRendererSrvc& renderer) {
         return;
 
     const GraphicOption option = _wheelLegDynamicDrawn ? GraphicOption::Update : GraphicOption::Add;
+    /* 轮腿动态图形只有两条大腿、两条小腿和两个轮子。车体与刻度在静态层中只 ADD 一次。 */
     const WheelLegPose poses[] = {
         leftWheelLegPose(_input),
         rightWheelLegPose(_input),
