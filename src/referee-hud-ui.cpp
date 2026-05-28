@@ -44,15 +44,10 @@ constexpr float kSchoolEmblemCenterY      = 900.0f;
 
 constexpr uint8_t kAutoAimGroup           = 4;
 constexpr uint8_t kAutoAimFrame           = 0;
-constexpr uint8_t kAutoAimVehicle         = 1;
-constexpr uint8_t kAutoAimEnergyA         = 2;
-constexpr uint8_t kAutoAimEnergyB         = 3;
-constexpr uint8_t kAutoAimOutpost         = 4;
+constexpr uint8_t kAutoAimEnergy          = 1;
 constexpr uint8_t kAutoAimTrack           = 5;
-constexpr uint8_t kAutoAimStateVehicle    = 0;
-constexpr uint8_t kAutoAimStateOutpost    = 1;
-constexpr uint8_t kAutoAimStateEnergyA    = 2;
-constexpr uint8_t kAutoAimStateEnergyB    = 3;
+constexpr uint8_t kAutoAimStateEnergyOff  = 0;
+constexpr uint8_t kAutoAimStateEnergyOn   = 1;
 constexpr uint8_t kAimTargetNone          = 0;
 constexpr uint8_t kAimTargetLocked        = 1;
 constexpr uint8_t kAimTargetFire          = 2;
@@ -187,22 +182,10 @@ struct SchoolEmblemLine {
 };
 
 /**
- * @brief 自瞄图标的几何语义。
- */
-enum class AutoAimGlyph : uint8_t {
-    Vehicle,
-    EnergyStatic,
-    EnergySweep,
-    Outpost,
-};
-
-/**
- * @brief 单个自瞄模式图标的布局配置。
+ * @brief 能量机关自瞄图标的布局配置。
  */
 struct AutoAimIcon {
     uint8_t id;
-    uint8_t state;
-    AutoAimGlyph glyph;
     float x;
     float y;
     float scale;
@@ -237,7 +220,7 @@ struct HudLine {
 };
 
 /**
- * @brief 自瞄状态轨道上的选中刻度。
+ * @brief 能量机关模式激活刻度。
  */
 struct AutoAimTrackTick {
     uint8_t id;
@@ -352,35 +335,28 @@ constexpr SchoolEmblemLine kSchoolEmblemLines[] = {
     {17, 3, 6, -23, 6, -40},    {18, 4, 20, -23, 20, -40},
 };
 
-/// 四种自瞄模式图标位置，左右两侧围绕中间视野布置。
-constexpr AutoAimIcon kAutoAimIcons[] = {
-    {kAutoAimVehicle, kAutoAimStateVehicle, AutoAimGlyph::Vehicle, 674.0f, 575.0f, 0.78f, 0.0f, 0.0f},
-    {kAutoAimEnergyA, kAutoAimStateEnergyA, AutoAimGlyph::EnergyStatic, 674.0f, 465.0f, 0.76f, 0.0f, -5.0f},
-    {kAutoAimEnergyB, kAutoAimStateEnergyB, AutoAimGlyph::EnergySweep, 1246.0f, 465.0f, 0.76f, 2.0f, 0.0f},
-    {kAutoAimOutpost, kAutoAimStateOutpost, AutoAimGlyph::Outpost, 1246.0f, 575.0f, 0.78f, 0.0f, 1.0f},
-};
+/// 单个能量机关自瞄图标，上移并缩小以避开中心视野。
+constexpr AutoAimIcon kAutoAimEnergyIcon = {kAutoAimEnergy, 960.0f, 690.0f, 0.72f, 0.0f, 0.0f};
 
 /// 自瞄状态轨道静态角标。
 constexpr AutoAimFrameLine kAutoAimFrameLines[] = {
-    {0, UiColor::White, 1, 710.0f, 644.0f, 642.0f, 644.0f},
-    {1, UiColor::White, 1, 710.0f, 396.0f, 642.0f, 396.0f},
-    {2, UiColor::White, 1, 1210.0f, 644.0f, 1278.0f, 644.0f},
-    {3, UiColor::White, 1, 1210.0f, 396.0f, 1278.0f, 396.0f},
+    {0, UiColor::White, 1, 880.0f, 660.0f, 912.0f, 690.0f},
+    {1, UiColor::White, 1, 880.0f, 720.0f, 912.0f, 690.0f},
+    {2, UiColor::White, 1, 1040.0f, 660.0f, 1008.0f, 690.0f},
+    {3, UiColor::White, 1, 1040.0f, 720.0f, 1008.0f, 690.0f},
+    {4, UiColor::White, 1, 930.0f, 646.0f, 990.0f, 646.0f},
+    {5, UiColor::White, 1, 930.0f, 734.0f, 990.0f, 734.0f},
 };
 
 /// 自瞄目标状态轨道，根据 none/locked/fire 动态变色。
 constexpr HudLine kAutoAimTrackLines[] = {
-    {0, UiColor::Cyan, 2, 746.0f, 420.0f, 746.0f, 620.0f},   {1, UiColor::Cyan, 2, 746.0f, 620.0f, 710.0f, 644.0f},
-    {2, UiColor::Cyan, 2, 746.0f, 420.0f, 710.0f, 396.0f},   {3, UiColor::Cyan, 2, 1174.0f, 420.0f, 1174.0f, 620.0f},
-    {4, UiColor::Cyan, 2, 1174.0f, 620.0f, 1210.0f, 644.0f}, {5, UiColor::Cyan, 2, 1174.0f, 420.0f, 1210.0f, 396.0f},
+    {0, UiColor::Cyan, 2, 912.0f, 690.0f, 936.0f, 690.0f},
+    {1, UiColor::Cyan, 2, 1008.0f, 690.0f, 984.0f, 690.0f},
 };
 
-/// 自瞄模式选中刻度，随 aimModeState 动态加粗。
+/// 能量机关模式激活刻度，随 aimModeState 动态加粗。
 constexpr AutoAimTrackTick kAutoAimTrackTicks[] = {
-    {0, kAutoAimStateVehicle, 746.0f, 575.0f, 704.0f},
-    {1, kAutoAimStateEnergyA, 746.0f, 465.0f, 704.0f},
-    {2, kAutoAimStateEnergyB, 1174.0f, 465.0f, 1216.0f},
-    {3, kAutoAimStateOutpost, 1174.0f, 575.0f, 1216.0f},
+    {0, kAutoAimStateEnergyOn, 942.0f, 654.0f, 978.0f},
 };
 
 /// 底部仪表台开放式透视边框。
@@ -480,7 +456,7 @@ uint16_t roundToUiCoord(float value) { return clampToUInt16(value + 0.5f, 0.0f, 
  */
 uint16_t roundToUiWidth(float value) { return clampToUInt16(value + 0.5f, 1.0f, 1023.0f); }
 
-uint8_t normalizeAimModeState(uint8_t state) { return static_cast<uint8_t>(state % 4); }
+uint8_t normalizeAimModeState(uint8_t state) { return static_cast<uint8_t>(state % 2); }
 
 uint8_t normalizeAimTargetState(uint8_t state) {
     if (state >= kAimTargetFire)
@@ -581,8 +557,6 @@ PointF autoAimLocal(const AutoAimIcon& icon, float x, float y) {
 
 UiColor autoAimMainColor(bool active) { return active ? UiColor::Main : UiColor::White; }
 
-UiColor autoAimDetailColor(bool) { return UiColor::White; }
-
 uint16_t autoAimWidth(const AutoAimIcon& icon, float width) { return roundToUiWidth(width * icon.scale); }
 
 /**
@@ -633,92 +607,35 @@ void drawAutoAimArc(UiRendererSrvc& renderer, const AutoAimIcon& icon, uint8_t s
 }
 
 /**
- * @brief 绘制五扇叶能量机关图标主体。
- * @return 下一个可用的子图形 ID。
+ * @brief 绘制五个装甲模块组成的能量机关主体。
  */
-uint8_t drawAutoAimFan(UiRendererSrvc& renderer, const AutoAimIcon& icon, GraphicOption option, bool active,
-                       float phaseDeg) {
+void drawAutoAimFan(UiRendererSrvc& renderer, const AutoAimIcon& icon, GraphicOption option, bool active,
+                    uint8_t firstId) {
     const UiColor bladeColor = autoAimMainColor(active);
+    const float bladeWidth   = active ? 5.0f : 3.0f;
     for (uint8_t i = 0; i < 5; ++i) {
-        const float angle = phaseDeg + static_cast<float>(i) * 72.0f;
-        drawAutoAimArc(renderer, icon, i, option, bladeColor, 5.0f, 0.0f, 0.0f, 19.0f, angle - 17.0f, angle + 17.0f);
+        const float angle = -54.0f + static_cast<float>(i) * 72.0f;
+        drawAutoAimArc(renderer, icon, static_cast<uint8_t>(firstId + i), option, bladeColor, bladeWidth, 0.0f, 0.0f,
+                       22.0f, angle - 16.0f, angle + 16.0f);
     }
-    drawAutoAimCircle(renderer, icon, 5, option, autoAimDetailColor(active), 2.0f, 0.0f, 0.0f, 5.0f);
-    return 6;
 }
 
 /**
- * @brief 绘制车辆/装甲目标模式图标。
+ * @brief 绘制单个能量机关自瞄图标。
  */
-void drawAutoAimVehicleIcon(UiRendererSrvc& renderer, const AutoAimIcon& icon, GraphicOption option, bool active) {
-    const UiColor main   = autoAimMainColor(active);
-    const UiColor detail = autoAimDetailColor(active);
-    drawAutoAimArc(renderer, icon, 0, option, main, 3.0f, 0.0f, 0.0f, 25.0f, 25.0f, 125.0f);
-    drawAutoAimArc(renderer, icon, 1, option, main, 3.0f, 0.0f, 0.0f, 25.0f, 205.0f, 305.0f);
-    drawAutoAimLine(renderer, icon, 2, option, detail, 3.0f, 0.0f, 16.0f, 16.0f, 0.0f);
-    drawAutoAimLine(renderer, icon, 3, option, detail, 3.0f, 16.0f, 0.0f, 0.0f, -16.0f);
-    drawAutoAimLine(renderer, icon, 4, option, detail, 3.0f, 0.0f, -16.0f, -16.0f, 0.0f);
-    drawAutoAimLine(renderer, icon, 5, option, detail, 3.0f, -16.0f, 0.0f, 0.0f, 16.0f);
-    drawAutoAimLine(renderer, icon, 6, option, main, 2.0f, -24.0f, 0.0f, 24.0f, 0.0f);
-    drawAutoAimCircle(renderer, icon, 7, option, main, 2.0f, 0.0f, 0.0f, 4.0f);
-}
+void drawAutoAimIcon(UiRendererSrvc& renderer, const AutoAimIcon& icon, GraphicOption option, bool active) {
+    const UiColor stateColor = autoAimMainColor(active);
+    const float sweepWidth   = active ? 3.0f : 1.0f;
+    const float arrowWidth   = active ? 3.0f : 1.0f;
 
-/**
- * @brief 绘制能量机关定点模式图标。
- */
-void drawAutoAimEnergyStaticIcon(UiRendererSrvc& renderer, const AutoAimIcon& icon, GraphicOption option, bool active) {
-    const uint8_t nextId = drawAutoAimFan(renderer, icon, option, active, -90.0f);
-    drawAutoAimLine(renderer, icon, nextId, option, autoAimMainColor(active), 3.0f, -11.0f, -29.0f, 11.0f, -29.0f);
-}
-
-/**
- * @brief 绘制能量机关扫掠模式图标。
- */
-void drawAutoAimEnergySweepIcon(UiRendererSrvc& renderer, const AutoAimIcon& icon, GraphicOption option, bool active) {
-    const UiColor main   = autoAimMainColor(active);
-    const uint8_t nextId = drawAutoAimFan(renderer, icon, option, active, -54.0f);
-    drawAutoAimArc(renderer, icon, nextId, option, main, 3.0f, 0.0f, 0.0f, 30.0f, 18.0f, 120.0f);
-    drawAutoAimLine(renderer, icon, static_cast<uint8_t>(nextId + 1), option, main, 3.0f, 27.0f, 16.0f, 34.0f, 23.0f);
-}
-
-/**
- * @brief 绘制前哨站模式图标，选中时加粗关键部分。
- */
-void drawAutoAimOutpostIcon(UiRendererSrvc& renderer, const AutoAimIcon& icon, GraphicOption option, bool active) {
-    const UiColor main    = autoAimMainColor(active);
-    const UiColor detail  = autoAimDetailColor(active);
-    const float mainWidth = active ? 6.0f : 3.0f;
-    const float coreWidth = active ? 4.0f : 2.0f;
-    drawAutoAimArc(renderer, icon, 0, option, main, mainWidth, 0.0f, 8.0f, 17.0f, 42.0f, 138.0f);
-    drawAutoAimLine(renderer, icon, 1, option, detail, 3.0f, -10.0f, 14.0f, 10.0f, 14.0f);
-    drawAutoAimLine(renderer, icon, 2, option, detail, 3.0f, 0.0f, 18.0f, 0.0f, -18.0f);
-    drawAutoAimLine(renderer, icon, 3, option, detail, 3.0f, -15.0f, -20.0f, 0.0f, 13.0f);
-    drawAutoAimLine(renderer, icon, 4, option, detail, 3.0f, 15.0f, -20.0f, 0.0f, 13.0f);
-    drawAutoAimLine(renderer, icon, 5, option, main, mainWidth, -19.0f, -22.0f, 19.0f, -22.0f);
-    drawAutoAimCircle(renderer, icon, 6, option, main, coreWidth, 0.0f, 2.0f, 5.0f);
-}
-
-/**
- * @brief 按图标语义分发自瞄模式图标绘制。
- */
-void drawAutoAimIcon(UiRendererSrvc& renderer, const AutoAimIcon& icon, GraphicOption option, uint8_t activeState) {
-    const bool active = icon.state == activeState;
-    switch (icon.glyph) {
-        case AutoAimGlyph::Vehicle:
-            drawAutoAimVehicleIcon(renderer, icon, option, active);
-            break;
-        case AutoAimGlyph::EnergyStatic:
-            drawAutoAimEnergyStaticIcon(renderer, icon, option, active);
-            break;
-        case AutoAimGlyph::EnergySweep:
-            drawAutoAimEnergySweepIcon(renderer, icon, option, active);
-            break;
-        case AutoAimGlyph::Outpost:
-            drawAutoAimOutpostIcon(renderer, icon, option, active);
-            break;
-        default:
-            break;
-    }
+    drawAutoAimArc(renderer, icon, 0, option, UiColor::White, 2.0f, 0.0f, 0.0f, 34.0f, 208.0f, 332.0f);
+    drawAutoAimArc(renderer, icon, 1, option, UiColor::White, 2.0f, 0.0f, 0.0f, 34.0f, 28.0f, 152.0f);
+    drawAutoAimFan(renderer, icon, option, active, 2);
+    drawAutoAimArc(renderer, icon, 7, option, stateColor, sweepWidth, 0.0f, 0.0f, 31.0f, 18.0f, 120.0f);
+    drawAutoAimLine(renderer, icon, 8, option, stateColor, arrowWidth, 27.0f, 16.0f, 35.0f, 23.0f);
+    drawAutoAimLine(renderer, icon, 9, option, stateColor, arrowWidth, 29.0f, 15.0f, 31.0f, 26.0f);
+    drawAutoAimCircle(renderer, icon, 10, option, UiColor::White, 2.0f, 0.0f, 0.0f, 7.0f);
+    drawAutoAimCircle(renderer, icon, 11, option, UiColor::White, 2.0f, 0.0f, 0.0f, 3.0f);
 }
 
 /* ------- switch deck helpers ----------------------------------------------*/
@@ -1407,26 +1324,17 @@ void RefereeHudUi::drawAutoAimTrackDynamicGraphics(UiRendererSrvc& renderer) {
 }
 
 /**
- * @brief 绘制四个自瞄模式图标。
+ * @brief 绘制单个能量机关自瞄模式图标。
  */
 void RefereeHudUi::drawAutoAimIconsDynamicGraphics(UiRendererSrvc& renderer) {
     if (_autoAimIconsDynamicDrawn && !_autoAimIconsDynamicDirty)
         return;
 
     const uint8_t activeState = normalizeAimModeState(_input.aimModeState);
+    const bool active         = activeState == kAutoAimStateEnergyOn;
+    const GraphicOption option = _autoAimIconsDynamicDrawn ? GraphicOption::Update : GraphicOption::Add;
 
-    if (!_autoAimIconsDynamicDrawn) {
-        for (const auto& icon : kAutoAimIcons) {
-            drawAutoAimIcon(renderer, icon, GraphicOption::Add, activeState);
-        }
-    } else {
-        /* 自瞄模式变化时只更新新旧两个图标。未选中的其他图标保持白色，不需要重复发送。 */
-        for (const auto& icon : kAutoAimIcons) {
-            if (icon.state == activeState || icon.state == _lastAimModeState) {
-                drawAutoAimIcon(renderer, icon, GraphicOption::Update, activeState);
-            }
-        }
-    }
+    drawAutoAimIcon(renderer, kAutoAimEnergyIcon, option, active);
 
     _lastAimModeState         = activeState;
     _autoAimIconsDynamicDrawn = true;

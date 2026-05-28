@@ -383,7 +383,7 @@ struct RefereeHudInput {
 | `stepClimbEnabled` | `bool` | 与飞坡共用同一开关位，开启时图标旋转 90 度表示上台阶 |
 | `feederEnabled` | `bool` | 底部发弹机构/摩擦轮开关高亮 |
 | `spinEnabled` | `bool` | 底部小陀螺开关高亮 |
-| `aimModeState` | `uint8_t`，0~3 | 自瞄模式选中项，0=车辆，1=前哨站，2=能量机关 A，3=能量机关 B |
+| `aimModeState` | `uint8_t`，0/1 | 能量机关自瞄模式，0=关闭，1=开启 |
 | `aimTargetState` | `uint8_t`，见 `RefereeHudAimTarget` | 中间目标状态轨道颜色，None=Pink，Locked=Green，Fire=Purple |
 | `leftLegThighAngleDeg` | `float`，单位 `deg` | 左腿大腿角度 |
 | `leftLegHipWheelDistance` | `float`，胯轮距 / 大腿长度 | 左腿轮心到胯关节距离，用于解算小腿和轮子位置 |
@@ -455,6 +455,12 @@ git submodule update --remote ThirdParty/referee-hud-ui
 如果库路径不同，将命令中的路径替换为实际路径。
 
 ## 更新日志
+
+### v1.2.4
+
+- 自瞄模式 UI 收敛为能量机关开/关两态。
+- 自瞄区域只保留单个上移缩小的能量机关图标，激活态通过五个装甲模块、扫掠弧、箭头和状态线变色/加粗表达。
+- 更新目标状态轨道与静态轮廓线布局，减少中心视野遮挡。
 
 ### v1.2.3
 

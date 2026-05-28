@@ -47,7 +47,7 @@ struct RefereeHudInput {
     bool stepClimbEnabled = false; ///< 上台阶模式开关状态；开启时会将飞坡箭头旋转为向上方向。
     bool feederEnabled = false; ///< 发弹机构/摩擦轮开关状态；控制底部对应开关高亮。
     bool spinEnabled = false; ///< 底盘自转模式开关状态；控制底部小陀螺开关高亮。
-    uint8_t aimModeState = 0; ///< 自瞄模式，0=车辆，1=前哨站，2=能量机关 A，3=能量机关 B。
+    uint8_t aimModeState = 0; ///< 能量机关自瞄模式，0=关闭，1=开启。
     uint8_t aimTargetState = static_cast<uint8_t>(RefereeHudAimTarget::None); ///< 自瞄目标状态轨道颜色。
     float leftLegThighAngleDeg = 41.0f; ///< 左腿大腿相对车体水平基准向下的夹角，单位 deg。
     float leftLegHipWheelDistance = 135.0f / 105.0f; ///< 左腿胯关节到轮心距离 / 大腿长度。
@@ -107,9 +107,9 @@ inline float clampFloat(float value, float minValue, float maxValue) {
 }
 
 /**
- * @brief 将任意自瞄模式值映射到 0~3。
+ * @brief 将任意能量机关自瞄模式值映射到 0~1。
  */
-inline uint8_t normalizeAimModeState(uint8_t state) { return static_cast<uint8_t>(state % 4); }
+inline uint8_t normalizeAimModeState(uint8_t state) { return static_cast<uint8_t>(state % 2); }
 
 /**
  * @brief 将任意自瞄目标状态钳制到 RefereeHudAimTarget 支持范围。
