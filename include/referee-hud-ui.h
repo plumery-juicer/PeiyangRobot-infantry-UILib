@@ -227,6 +227,7 @@ class RefereeHudUi {
 
     /* ------- internal draw helpers ----------------------------------------*/
 
+    void resetDrawState();
     void updateDynamicDirtyState(const RefereeHudInput& input);
     void drawDynamicGraphics(UiRendererSrvc& renderer);
     void drawStaticGraphics(UiRendererSrvc& renderer);

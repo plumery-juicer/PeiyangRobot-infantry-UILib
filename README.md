@@ -456,6 +456,12 @@ git submodule update --remote ThirdParty/referee-hud-ui
 
 ## 更新日志
 
+### v1.2.3
+
+- 新增 `UiRendererSrvc::setSenderId()`，支持运行期更新裁判系统交互帧 senderId。
+- `RefereeHudUi::reset()` 会复位所有静态和动态绘制状态，下一轮绘制重新 ADD 全部图形后再进入 UPDATE。
+- 将摩擦轮/发弹机构开关图标更新为双圆摩擦轮几何。
+
 ### v1.2.2
 
 - 补全 `RefereeHudInput`、`UiRendererSrvc::Config`、链式绘图代理和裁判系统协议结构的 Doxygen 注释。

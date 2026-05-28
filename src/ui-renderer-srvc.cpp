@@ -25,6 +25,8 @@ bool UiRendererSrvc::init() {
     return _renderQueue != nullptr;
 }
 
+void UiRendererSrvc::setSenderId(uint16_t senderId) { _senderId = senderId; }
+
 void UiRendererSrvc::run() {
     if (_renderQueue == nullptr) {
         return;

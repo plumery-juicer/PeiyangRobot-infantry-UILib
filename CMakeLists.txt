@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(referee-hud-ui LANGUAGES CXX)
+project(referee-hud-ui VERSION 1.2.3 LANGUAGES CXX)
 
 set(REFEREE_HUD_UI_FREERTOS_TARGET "" CACHE STRING
     "Optional FreeRTOS CMake target to link, for example FreeRTOS::Kernel, freertos_kernel, or FreeRTOS."

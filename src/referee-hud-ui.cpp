@@ -432,21 +432,20 @@ constexpr SwitchIconPrimitive kTurboSwitchIcon[] = {
     iconLine(15, UiColor::Pink, 10.0f, -18.0f, -20.0f, 12.0f, 3.0f),
 };
 
-/// 2024 旧 RM 摩擦轮/发弹机构图标几何。
-constexpr float kFeederSwitchIconScale = 0.75f;
+/// 摩擦轮/发弹机构图标几何。
+constexpr float kFeederSwitchIconScale = 1.0f;
 constexpr SwitchIconPrimitive kFeederSwitchIcon[] = {
-    iconLine(10, UiColor::Main, 15.0f, 0.0f, 12.0f, -10.0f, -18.0f),
-    iconLine(11, UiColor::Main, 15.0f, -10.0f, -18.0f, 10.0f, -18.0f),
-    iconLine(12, UiColor::Main, 15.0f, 10.0f, -18.0f, 0.0f, 12.0f),
-    iconArc(13, UiColor::Pink, 5.0f, 4.0f, 8.0f, 7.0f, 15.0f, 270.0f, 335.0f),
-    iconArc(14, UiColor::Pink, 5.0f, -4.0f, 8.0f, 7.0f, 15.0f, 25.0f, 90.0f),
-    iconLine(15, UiColor::Pink, 10.0f, 0.0f, 13.0f, 0.0f, -7.0f),
-    iconArc(16, UiColor::Pink, 5.0f, -6.0f, -22.0f, 7.0f, 15.0f, 270.0f, 335.0f),
-    iconArc(17, UiColor::Pink, 5.0f, -14.0f, -22.0f, 7.0f, 15.0f, 25.0f, 90.0f),
-    iconLine(18, UiColor::Pink, 10.0f, -10.0f, -17.0f, -10.0f, -37.0f),
-    iconArc(19, UiColor::Pink, 5.0f, 14.0f, -22.0f, 7.0f, 15.0f, 270.0f, 335.0f),
-    iconArc(20, UiColor::Pink, 5.0f, 6.0f, -22.0f, 7.0f, 15.0f, 25.0f, 90.0f),
-    iconLine(21, UiColor::Pink, 10.0f, 10.0f, -17.0f, 10.0f, -37.0f),
+    iconCircle(10, UiColor::Main, 4.0f, -18.0f, 0.0f, 17.0f),
+    iconCircle(11, UiColor::Main, 4.0f, 18.0f, 0.0f, 17.0f),
+    iconCircle(12, UiColor::White, 2.0f, -18.0f, 0.0f, 7.0f),
+    iconCircle(13, UiColor::White, 2.0f, 18.0f, 0.0f, 7.0f),
+    iconLine(14, UiColor::White, 3.0f, -3.0f, 16.0f, 3.0f, 16.0f),
+    iconLine(15, UiColor::White, 3.0f, -3.0f, -16.0f, 3.0f, -16.0f),
+    iconCircle(16, UiColor::Pink, 3.0f, 0.0f, 0.0f, 5.0f),
+    iconArc(17, UiColor::White, 3.0f, -18.0f, 0.0f, 22.0f, 22.0f, 225.0f, 315.0f),
+    iconArc(18, UiColor::White, 3.0f, 18.0f, 0.0f, 22.0f, 22.0f, 45.0f, 135.0f),
+    iconLine(19, UiColor::Main, 3.0f, -36.0f, 0.0f, -27.0f, 6.0f),
+    iconLine(20, UiColor::Main, 3.0f, 36.0f, 0.0f, 27.0f, -6.0f),
 };
 
 /// 2024 旧 RM 小陀螺图标几何。
@@ -1101,10 +1100,10 @@ void RefereeHudUi::updateDynamicDirtyState(const RefereeHudInput& input) {
 }
 
 /**
- * @brief 清屏并复位所有静态/动态 ADD 状态。
+ * @brief 将所有图形状态恢复为未 ADD。
  */
-void RefereeHudUi::reset(UiRendererSrvc& renderer) {
-    renderer.clearGraphic(GraphicDelMode::All);
+void RefereeHudUi::resetDrawState() {
+    _input                        = {};
     _capVoltageStaticDrawn        = false;
     _capVoltageDynamicDrawn       = false;
     _schoolEmblemStaticDrawn      = false;
@@ -1131,6 +1130,14 @@ void RefereeHudUi::reset(UiRendererSrvc& renderer) {
     _lastLeftLegHipWheelDistance  = -1000.0f;
     _lastRightLegThighAngleDeg    = -1000.0f;
     _lastRightLegHipWheelDistance = -1000.0f;
+}
+
+/**
+ * @brief 清屏并复位所有静态/动态 ADD 状态。
+ */
+void RefereeHudUi::reset(UiRendererSrvc& renderer) {
+    renderer.clearGraphic(GraphicDelMode::All);
+    resetDrawState();
 }
 
 /* ------- component draw implementation ------------------------------------*/

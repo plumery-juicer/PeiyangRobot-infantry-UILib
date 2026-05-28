@@ -86,6 +86,18 @@ class UiRendererSrvc {
     void run();
 
     /**
+     * @brief 修改裁判系统交互帧 senderId。
+     *
+     * receiverId 会继续在发送时按 senderId + 0x0100 自动生成。
+     */
+    void setSenderId(uint16_t senderId);
+
+    /**
+     * @brief 获取当前裁判系统交互帧 senderId。
+     */
+    uint16_t senderId() const { return _senderId; }
+
+    /**
      * @brief 链式图形构造代理。
      *
      * 代理析构时自动把 payload 提交到 Renderer 队列，因此推荐用局部作用域包住一次绘制。
