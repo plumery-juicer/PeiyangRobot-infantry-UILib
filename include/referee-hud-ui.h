@@ -49,9 +49,9 @@ struct RefereeHudInput {
     bool spinEnabled = false; ///< 底盘自转模式开关状态；控制底部小陀螺开关高亮。
     uint8_t aimModeState = 0; ///< 能量机关自瞄模式，0=关闭，1=开启。
     uint8_t aimTargetState = static_cast<uint8_t>(RefereeHudAimTarget::None); ///< 自瞄目标状态轨道颜色。
-    float leftLegThighAngleDeg = 41.0f; ///< 左腿大腿相对车体水平基准向下的夹角，单位 deg。
+    float leftLegHipWheelAngleDeg = 90.0f; ///< 左腿胯关节到轮心连线相对车体水平基准向下的夹角，单位 deg。
     float leftLegHipWheelDistance = 135.0f / 105.0f; ///< 左腿胯关节到轮心距离 / 大腿长度。
-    float rightLegThighAngleDeg = 41.0f; ///< 右腿大腿相对车体水平基准向下的夹角，单位 deg。
+    float rightLegHipWheelAngleDeg = 90.0f; ///< 右腿胯关节到轮心连线相对车体水平基准向下的夹角，单位 deg。
     float rightLegHipWheelDistance = 135.0f / 105.0f; ///< 右腿胯关节到轮心距离 / 大腿长度。
 };
 
@@ -122,29 +122,29 @@ inline uint8_t normalizeAimTargetState(uint8_t state) {
 }
 
 /**
- * @brief 根据胯关节到轮心距离反解腿部参考角。
+ * @brief 根据胯关节到轮心距离给出默认胯轮连线角。
  *
- * 该函数只提供几何参考。实际绘制由 RefereeHudInput 中的 thigh angle 和
- * hip-wheel distance ratio 直接决定，不通过缩放连杆伪造腿长。
+ * 该函数只提供几何参考。实际绘制由 RefereeHudInput 中的 hip-wheel line angle
+ * 和 hip-wheel distance ratio 直接决定，不通过缩放连杆伪造腿长。
  *
  * @param distanceRatio 胯关节到轮心距离 / 大腿长度。
- * @return 大腿相对车体水平基准向下的参考夹角幅值，单位 deg。
+ * @return 胯轮连线相对车体水平基准向下的参考夹角幅值，单位 deg。
+ */
+inline float wheelLegHipWheelAngleForDistanceRatio(float) { return 90.0f; }
+
+/**
+ * @brief wheelLegHipWheelAngleForDistanceRatio() 的兼容别名。
  */
 inline float wheelLegAngleForDistanceRatio(float distanceRatio) {
-    const float minDistance = std::fabs(kWheelLegLowerLinkRaw - kWheelLegUpperLinkRaw) + 1.0f;
-    const float maxDistance = kWheelLegLowerLinkRaw + kWheelLegUpperLinkRaw - 1.0f;
-    const float distance = clampFloat(distanceRatio * kWheelLegUpperLinkRaw, minDistance, maxDistance);
-    const float along = (distance * distance + kWheelLegUpperLinkRaw * kWheelLegUpperLinkRaw -
-                         kWheelLegLowerLinkRaw * kWheelLegLowerLinkRaw) /
-                        (2.0f * distance);
-    const float alongRatio = clampFloat(along / kWheelLegUpperLinkRaw, -1.0f, 1.0f);
-    return 90.0f - std::acos(alongRatio) * 180.0f / kPi;
+    return wheelLegHipWheelAngleForDistanceRatio(distanceRatio);
 }
 
 /**
- * @brief wheelLegAngleForDistanceRatio() 的兼容别名。
+ * @brief wheelLegHipWheelAngleForDistanceRatio() 的兼容别名。
  */
-inline float wheelLegAngleForDistance(float distanceRatio) { return wheelLegAngleForDistanceRatio(distanceRatio); }
+inline float wheelLegAngleForDistance(float distanceRatio) {
+    return wheelLegHipWheelAngleForDistanceRatio(distanceRatio);
+}
 } // namespace RefereeHudSpec
 
 /* ------- class prototypes --------------------------------------------------*/
@@ -220,9 +220,9 @@ class RefereeHudUi {
     bool _lastFeederSwitchState = false;
     bool _lastSpinSwitchState = false;
     bool _turboGlyphStepMode = false;
-    float _lastLeftLegThighAngleDeg = -1000.0f;
+    float _lastLeftLegHipWheelAngleDeg = -1000.0f;
     float _lastLeftLegHipWheelDistance = -1000.0f;
-    float _lastRightLegThighAngleDeg = -1000.0f;
+    float _lastRightLegHipWheelAngleDeg = -1000.0f;
     float _lastRightLegHipWheelDistance = -1000.0f;
 
     /* ------- internal draw helpers ----------------------------------------*/

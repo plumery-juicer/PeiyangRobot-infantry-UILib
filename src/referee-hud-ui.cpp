@@ -88,7 +88,7 @@ constexpr float kCapVoltageThresholds[]   = {
 /* ------- wheel-leg widget specification -----------------------------------*/
 /*
  * UI 绘制使用缩放后的 105:125 连杆，对应真实机构 210:250 的大腿/小腿比例。
- * 腿长变化通过 thigh angle 和 hip-wheel distance 连续解算，不缩放连杆长度。
+ * 腿长变化通过 hip-wheel line angle 和 hip-wheel distance 连续解算，不缩放连杆长度。
  */
 constexpr float kWheelLegScale               = 0.48f;
 constexpr float kWheelLegHipX                = 960.0f;
@@ -130,7 +130,7 @@ struct WheelLegGeometry {
  * @brief 单条轮腿的输入姿态。
  */
 struct WheelLegPose {
-    float thighAngleDeg;
+    float hipWheelAngleDeg;
     float hipWheelDistance;
 };
 
@@ -902,7 +902,7 @@ float clampFloat(float value, float minValue, float maxValue) {
 }
 
 /**
- * @brief 根据大腿夹角和目标 hip-wheel distance 连续解算轮腿几何。
+ * @brief 根据胯轮连线角和目标 hip-wheel distance 连续解算轮腿几何。
  */
 WheelLegGeometry wheelLegGeometry(const WheelLegPose& pose, const WheelLegConfig& leg) {
     const float hipX     = kWheelLegHipX + leg.hipOffsetX * kWheelLegScale;
@@ -913,29 +913,29 @@ WheelLegGeometry wheelLegGeometry(const WheelLegPose& pose, const WheelLegConfig
 
     WheelLegGeometry geometry{};
     geometry.hip   = {hipX, kWheelLegHipY};
-    const float angleRad = pose.thighAngleDeg * RefereeHudSpec::kPi / 180.0f;
-    /* 大腿长度固定。角度只决定膝关节绕胯关节的位置，不通过缩放连杆表达腿长。 */
-    geometry.knee        = {hipX + std::fabs(std::cos(angleRad)) * kWheelLegUpperLinkLength * kWheelLegBendDirection,
-                            kWheelLegHipY - std::sin(angleRad) * kWheelLegUpperLinkLength};
+    const float angleRad = pose.hipWheelAngleDeg * RefereeHudSpec::kPi / 180.0f;
+    /* 胯轮连线角直接决定轮心位置；连杆长度保持固定。 */
+    geometry.wheel = {hipX + std::cos(angleRad) * solveDist * kWheelLegBendDirection,
+                      kWheelLegHipY - std::sin(angleRad) * solveDist};
 
-    /* 小腿端点由两个圆求交得到：
-     * - 圆 1：以胯关节为圆心，半径为 hip-wheel distance；
-     * - 圆 2：以膝关节为圆心，半径为小腿长度。
+    /* 膝点由两个圆求交得到：
+     * - 圆 1：以胯关节为圆心，半径为大腿长度；
+     * - 圆 2：以轮心为圆心，半径为小腿长度。
      * 这能保证大腿/小腿长度恒定，只让关节角度和胯轮距改变姿态。 */
-    const float hipToKneeX = geometry.knee.x - geometry.hip.x;
-    const float hipToKneeY = geometry.knee.y - geometry.hip.y;
-    const float centerDist = std::sqrt(hipToKneeX * hipToKneeX + hipToKneeY * hipToKneeY);
-    const float dirX       = hipToKneeX / centerDist;
-    const float dirY       = hipToKneeY / centerDist;
+    const float hipToWheelX = geometry.wheel.x - geometry.hip.x;
+    const float hipToWheelY = geometry.wheel.y - geometry.hip.y;
+    const float centerDist  = std::sqrt(hipToWheelX * hipToWheelX + hipToWheelY * hipToWheelY);
+    const float dirX        = hipToWheelX / centerDist;
+    const float dirY        = hipToWheelY / centerDist;
     const float along =
-        (solveDist * solveDist + centerDist * centerDist - kWheelLegLowerLinkLength * kWheelLegLowerLinkLength) /
+        (kWheelLegUpperLinkLength * kWheelLegUpperLinkLength + centerDist * centerDist -
+         kWheelLegLowerLinkLength * kWheelLegLowerLinkLength) /
         (2.0f * centerDist);
-    const float height  = std::sqrt(std::fmax(0.0f, solveDist * solveDist - along * along));
+    const float height =
+        std::sqrt(std::fmax(0.0f, kWheelLegUpperLinkLength * kWheelLegUpperLinkLength - along * along));
     const PointF base   = {geometry.hip.x + dirX * along, geometry.hip.y + dirY * along};
-    const PointF wheelA = {base.x - dirY * height, base.y + dirX * height};
-    const PointF wheelB = {base.x + dirY * height, base.y - dirX * height};
-    /* 侧视图中轮子应落在支撑地面方向，因此取两个交点里 y 更低的点。 */
-    geometry.wheel      = wheelA.y < wheelB.y ? wheelA : wheelB;
+    geometry.knee       = {base.x - dirY * height * kWheelLegBendDirection,
+                           base.y + dirX * height * kWheelLegBendDirection};
     return geometry;
 }
 
@@ -943,14 +943,14 @@ WheelLegGeometry wheelLegGeometry(const WheelLegPose& pose, const WheelLegConfig
  * @brief 从统一输入中取左腿姿态。
  */
 WheelLegPose leftWheelLegPose(const RefereeHudInput& input) {
-    return {input.leftLegThighAngleDeg, input.leftLegHipWheelDistance};
+    return {input.leftLegHipWheelAngleDeg, input.leftLegHipWheelDistance};
 }
 
 /**
  * @brief 从统一输入中取右腿姿态。
  */
 WheelLegPose rightWheelLegPose(const RefereeHudInput& input) {
-    return {input.rightLegThighAngleDeg, input.rightLegHipWheelDistance};
+    return {input.rightLegHipWheelAngleDeg, input.rightLegHipWheelDistance};
 }
 
 /**
@@ -987,14 +987,14 @@ void RefereeHudUi::drawDynamic(UiRendererSrvc& renderer, const RefereeHudInput& 
 void RefereeHudUi::updateDynamicDirtyState(const RefereeHudInput& input) {
     /* 电容电压本身每帧都会更新；腿部、自瞄模式和开关只在输入变化超过阈值时更新，
      * 避免静态状态反复塞入发送队列。 */
-    if (legAngleSignalChanged(input.leftLegThighAngleDeg, _lastLeftLegThighAngleDeg) ||
+    if (legAngleSignalChanged(input.leftLegHipWheelAngleDeg, _lastLeftLegHipWheelAngleDeg) ||
         legDistanceRatioSignalChanged(input.leftLegHipWheelDistance, _lastLeftLegHipWheelDistance) ||
-        legAngleSignalChanged(input.rightLegThighAngleDeg, _lastRightLegThighAngleDeg) ||
+        legAngleSignalChanged(input.rightLegHipWheelAngleDeg, _lastRightLegHipWheelAngleDeg) ||
         legDistanceRatioSignalChanged(input.rightLegHipWheelDistance, _lastRightLegHipWheelDistance)) {
         _wheelLegDynamicDirty         = true;
-        _lastLeftLegThighAngleDeg     = input.leftLegThighAngleDeg;
+        _lastLeftLegHipWheelAngleDeg  = input.leftLegHipWheelAngleDeg;
         _lastLeftLegHipWheelDistance  = input.leftLegHipWheelDistance;
-        _lastRightLegThighAngleDeg    = input.rightLegThighAngleDeg;
+        _lastRightLegHipWheelAngleDeg = input.rightLegHipWheelAngleDeg;
         _lastRightLegHipWheelDistance = input.rightLegHipWheelDistance;
     }
 
@@ -1043,9 +1043,9 @@ void RefereeHudUi::resetDrawState() {
     _lastFeederSwitchState        = false;
     _lastSpinSwitchState          = false;
     _turboGlyphStepMode           = false;
-    _lastLeftLegThighAngleDeg     = -1000.0f;
+    _lastLeftLegHipWheelAngleDeg  = -1000.0f;
     _lastLeftLegHipWheelDistance  = -1000.0f;
-    _lastRightLegThighAngleDeg    = -1000.0f;
+    _lastRightLegHipWheelAngleDeg = -1000.0f;
     _lastRightLegHipWheelDistance = -1000.0f;
 }
 

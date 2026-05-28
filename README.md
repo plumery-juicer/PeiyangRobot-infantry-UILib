@@ -174,9 +174,9 @@ void refereeHudProducerTask(void*) {
         input.aimModeState = readAimMode();
         input.aimTargetState = readAimTargetState();
 
-        input.leftLegThighAngleDeg = readLeftLegThighAngleDeg();
+        input.leftLegHipWheelAngleDeg = readLeftLegHipWheelAngleDeg();
         input.leftLegHipWheelDistance = readLeftLegHipWheelDistanceRatio();
-        input.rightLegThighAngleDeg = readRightLegThighAngleDeg();
+        input.rightLegHipWheelAngleDeg = readRightLegHipWheelAngleDeg();
         input.rightLegHipWheelDistance = readRightLegHipWheelDistanceRatio();
 
         hudUi.draw(renderer, input);
@@ -185,9 +185,9 @@ void refereeHudProducerTask(void*) {
 }
 ```
 
-轮腿 UI 不再提供三档腿长输入接口。调用者需要直接填入左右腿的大腿角度和胯轮距比例：
+轮腿 UI 不再提供三档腿长输入接口。调用者需要直接填入左右腿的胯轮连线角和胯轮距比例：
 
-- `leftLegThighAngleDeg` / `rightLegThighAngleDeg`：大腿相对车体水平基准向下的夹角，单位 `deg`。
+- `leftLegHipWheelAngleDeg` / `rightLegHipWheelAngleDeg`：胯关节到轮心连线相对车体水平基准向下的夹角，单位 `deg`。
 - `leftLegHipWheelDistance` / `rightLegHipWheelDistance`：胯关节到轮心距离 / 大腿长度。
 
 到这里，其他工程已经可以完成最小接入。
@@ -364,9 +364,9 @@ struct RefereeHudInput {
     bool spinEnabled;
     uint8_t aimModeState;
     uint8_t aimTargetState;
-    float leftLegThighAngleDeg;
+    float leftLegHipWheelAngleDeg;
     float leftLegHipWheelDistance;
-    float rightLegThighAngleDeg;
+    float rightLegHipWheelAngleDeg;
     float rightLegHipWheelDistance;
 };
 ```
@@ -385,12 +385,12 @@ struct RefereeHudInput {
 | `spinEnabled` | `bool` | 底部小陀螺开关高亮 |
 | `aimModeState` | `uint8_t`，0/1 | 能量机关自瞄模式，0=关闭，1=开启 |
 | `aimTargetState` | `uint8_t`，见 `RefereeHudAimTarget` | 中间目标状态轨道颜色，None=Pink，Locked=Green，Fire=Purple |
-| `leftLegThighAngleDeg` | `float`，单位 `deg` | 左腿大腿角度 |
+| `leftLegHipWheelAngleDeg` | `float`，单位 `deg` | 左腿胯轮连线角 |
 | `leftLegHipWheelDistance` | `float`，胯轮距 / 大腿长度 | 左腿轮心到胯关节距离，用于解算小腿和轮子位置 |
-| `rightLegThighAngleDeg` | `float`，单位 `deg` | 右腿大腿角度 |
+| `rightLegHipWheelAngleDeg` | `float`，单位 `deg` | 右腿胯轮连线角 |
 | `rightLegHipWheelDistance` | `float`，胯轮距 / 大腿长度 | 右腿轮心到胯关节距离，用于解算小腿和轮子位置 |
 
-轮腿 UI 中的连杆长度是固定的。腿部姿态通过大腿角度和胯关节到轮心距离比例变化，而不是通过缩放连杆长度变化。
+轮腿 UI 中的连杆长度是固定的。腿部姿态通过胯轮连线角和胯关节到轮心距离比例变化，而不是通过缩放连杆长度变化。
 `leftLegHipWheelDistance` 和 `rightLegHipWheelDistance` 传入的是 `胯关节到轮心距离 / 大腿长度`，例如胯轮距 270 mm、大腿 210 mm 时传入 `1.2857f`。
 
 `RefereeHudSpec::kWheelLegDistanceMinRatio`、`kWheelLegDistanceMidRatio` 和
@@ -420,9 +420,9 @@ class MyHudInputSource final : public RefereeHudInputSource {
         input.capError = readCapError();
         input.aimModeState = readAimMode();
         input.aimTargetState = readAimTargetState();
-        input.leftLegThighAngleDeg = readLeftLegThighAngleDeg();
+        input.leftLegHipWheelAngleDeg = readLeftLegHipWheelAngleDeg();
         input.leftLegHipWheelDistance = readLeftLegHipWheelDistanceRatio();
-        input.rightLegThighAngleDeg = readRightLegThighAngleDeg();
+        input.rightLegHipWheelAngleDeg = readRightLegHipWheelAngleDeg();
         input.rightLegHipWheelDistance = readRightLegHipWheelDistanceRatio();
         return input;
     }
@@ -456,6 +456,12 @@ git submodule update --remote ThirdParty/referee-hud-ui
 
 ## 更新日志
 
+### v1.2.5
+
+- 轮腿姿态输入从大腿角度调整为胯关节到轮心连线角。
+- 轮腿几何改为先根据胯轮连线角和胯轮距确定轮心，再通过固定大腿/小腿长度求解膝点。
+- 更新 `RefereeHudInput` 轮腿字段命名和接入示例，使用 `leftLegHipWheelAngleDeg` / `rightLegHipWheelAngleDeg`。
+
 ### v1.2.4
 
 - 自瞄模式 UI 收敛为能量机关开/关两态。
@@ -479,7 +485,7 @@ git submodule update --remote ThirdParty/referee-hud-ui
 
 - 删除 `RefereeHudInput::legLengthState`，轮腿 UI 不再接受三档腿长状态。
 - 删除 `RefereeHudSpec::normalizeLegLengthState()` 和 `RefereeHudSpec::fillDualLegPoseFromState()`。
-- 轮腿渲染只根据 `leftLegThighAngleDeg`、`leftLegHipWheelDistance`、`rightLegThighAngleDeg`
+- 轮腿渲染只根据 `leftLegHipWheelAngleDeg`、`leftLegHipWheelDistance`、`rightLegHipWheelAngleDeg`
   和 `rightLegHipWheelDistance` 四个连续输入更新。
 - 保留 `kWheelLegDistanceMinRatio`、`kWheelLegDistanceMidRatio`、`kWheelLegDistanceMaxRatio`
   作为外部输入的推荐比例范围。
